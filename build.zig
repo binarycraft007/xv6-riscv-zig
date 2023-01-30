@@ -11,7 +11,6 @@ pub fn build(b: *std.build.Builder) void {
 
     const kernel = b.addExecutable("kernel", "src/kernel/entry.zig");
     kernel.addAssemblyFile("src/kernel/trampoline.S");
-    kernel.addAssemblyFile("src/kernel/kernelvec.S");
     kernel.setLinkerScriptPath(.{ .path = kernel_linker });
     kernel.code_model = .medium;
     kernel.setTarget(target);

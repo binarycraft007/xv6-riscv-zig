@@ -193,7 +193,7 @@ pub inline fn w_pmpaddr0(pmpaddr0: usize) void {
 // use riscv's sv39 page table scheme.
 pub const SATP_SV39 = @as(usize, 8) << 60;
 
-pub fn MAKE_SATP(pagetable: *usize) usize {
+pub fn MAKE_SATP(pagetable: PageTable) usize {
     return SATP_SV39 | (@ptrToInt(pagetable) >> 12);
 }
 
@@ -309,7 +309,7 @@ pub fn sfence_vma() void {
 }
 
 pub const pte_t = usize;
-pub const pagetable_t = *usize; // 512 PTEs
+pub const PageTable = *usize; // 512 PTEs
 
 pub const PGSIZE = 4096; // bytes per page
 pub const PGSHIFT = 12; // bits of offset within a page

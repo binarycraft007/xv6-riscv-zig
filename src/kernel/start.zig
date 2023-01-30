@@ -1,8 +1,10 @@
 const riscv = @import("riscv.zig");
 const main = @import("main.zig");
+const param = @import("param.zig");
+const memlayout = @import("memlayout.zig");
+const kernelvec = @import("kernelvec.zig");
 
-// assembly code in kernelvec.S for machine-mode timer interrupt.
-extern fn timervec() void;
+var timer_scratch: [param.NCPU][5]usize = undefined;
 
 // entry.zig jumps here in machine mode on stack0.
 pub fn start() void {
@@ -32,5 +34,39 @@ pub fn start() void {
     riscv.w_pmpaddr0(@as(usize, 0x3fffffffffffff));
     riscv.w_pmpcfg0(@as(usize, 0xf));
 
+    // ask for clock interrupts.
+    timerinit();
+
+    // keep each CPU's hartid in its tp register, for cpuid().
+    const id = riscv.r_mhartid();
+    riscv.w_tp(id);
+
     asm volatile ("mret");
+}
+
+pub fn timerinit() void {
+    // each CPU has a separate source of timer interrupts.
+    const id = riscv.r_mhartid();
+
+    // ask the CLINT for a timer interrupt.
+    const interval = 1000000; // cycles; about 1/10th second in qemu.
+    memlayout.CLINT_MTIMECMP(id).* = memlayout.CLINT_MTIME.* + interval;
+
+    // prepare information in scratch[] for timervec.
+    // scratch[0..2] : space for timervec to save registers.
+    // scratch[3] : address of CLINT MTIMECMP register.
+    // scratch[4] : desired interval (in cycles) between timer interrupts.
+    var scratch: [*]usize = @ptrCast([*]usize, &timer_scratch[id][0]);
+    scratch[3] = @ptrToInt(memlayout.CLINT_MTIMECMP(id));
+    scratch[4] = interval;
+    riscv.w_mscratch(@ptrToInt(scratch));
+
+    // set the machine-mode trap handler.
+    riscv.w_mtvec(@ptrToInt(&kernelvec.timervec));
+
+    // enable machine-mode interrupts.
+    riscv.w_mstatus(riscv.r_mstatus() | @enumToInt(riscv.MSTATUS.MIE));
+
+    // enable machine-mode timer interrupts.
+    riscv.w_mie(riscv.r_mie() | @enumToInt(riscv.MIE.MTIE));
 }
