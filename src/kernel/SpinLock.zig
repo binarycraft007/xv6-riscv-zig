@@ -5,7 +5,6 @@ const Cpu = @import("Cpu.zig");
 // Mutual exclusion lock.
 locked: bool, // Is the lock held?
 // For debugging:
-name: []const u8, // Name of lock.
 cpu: *Cpu, // The cpu holding the lock.
 
 const SpinLock = @This();
@@ -34,13 +33,14 @@ pub fn release(self: *SpinLock) void {
     self.cpu = undefined;
 
     @atomicRmw(bool, &self.locked, .Xchg, false, .SeqCst);
+    popOff();
 }
 
 pub fn holding(self: *SpinLock) bool {
     return self.locked and self.cpu == Proc.MyCpu();
 }
 
-pub fn popOff() void {
+pub fn pushOff() void {
     var old = riscv.intr_get();
 
     riscv.intr_off();
@@ -49,7 +49,7 @@ pub fn popOff() void {
     Proc.MyCpu().noff += 1;
 }
 
-pub fn pushOff() void {
+pub fn popOff() void {
     var cpu = Proc.MyCpu();
     if (riscv.intr_get() > 0)
         @panic("pop_off - interruptible");

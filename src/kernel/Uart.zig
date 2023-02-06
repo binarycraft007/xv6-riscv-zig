@@ -1,5 +1,6 @@
 const memlayout = @import("memlayout.zig");
 const SpinLock = @import("SpinLock.zig");
+const Proc = @import("Proc.zig");
 
 /// the UART control registers.
 /// some have different meanings for
@@ -21,9 +22,15 @@ pub const LSR = 5; // line status register
 pub const LSR_RX_READY = 1 << 0; // input is waiting to be read from RHR
 pub const LSR_TX_IDLE = 1 << 5; // THR can accept another character to send
 
+pub const TX_BUF_SIZE = 32;
+
 tx_lock: SpinLock,
+tx_buf: [TX_BUF_SIZE]u8,
+tx_w: u64, // write next to uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE]
+tx_r: u64, // read next from uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE]
 
 const Uart = @This();
+const panicked = false;
 
 pub fn init() Uart {
     // disable interrupts.
@@ -49,8 +56,80 @@ pub fn init() Uart {
     writeReg(IER, IER_TX_ENABLE | IER_RX_ENABLE);
 
     return Uart{
+        .tx_w = 0,
+        .tx_r = 0,
+        .tx_buf = [_]u8{0} ** TX_BUF_SIZE,
         .tx_lock = SpinLock.init(),
     };
+}
+
+// add a character to the output buffer and tell the
+// UART to start sending if it isn't already.
+// blocks if the output buffer is full.
+// because it may block, it can't be called
+// from interrupts; it's only suitable for use
+// by write().
+pub fn putc(self: *Uart, c: u8) void {
+    self.tx_lock.acquire();
+    defer self.tx_lock.release();
+
+    if (panicked) {
+        while (true) {}
+    }
+    while (self.tx_w == self.tx_r + TX_BUF_SIZE) {
+        // buffer is full.
+        // wait for uartstart() to open up space in the buffer.
+        Proc.sleep(&self.tx_r, &self.tx_lock);
+    }
+    self.tx_buf[self.tx_w % TX_BUF_SIZE] = c;
+    self.tx_w += 1;
+    self.start();
+}
+
+// alternate version of putc() that doesn't
+// use interrupts, for use by kernel printf() and
+// to echo characters. it spins waiting for the uart's
+// output register to be empty.
+pub fn putcSync(c: u8) void {
+    SpinLock.pushOff();
+
+    if (panicked) {
+        while (true) {}
+    }
+
+    // wait for Transmit Holding Empty to be set in LSR.
+    while ((readReg(LSR) & LSR_TX_IDLE) == 0) {}
+    writeReg(THR, c);
+
+    SpinLock.popOff();
+}
+
+/// if the UART is idle, and a character is waiting
+/// in the transmit buffer, send it.
+/// caller must hold uart_tx_lock.
+/// called from both the top- and bottom-half.
+pub fn start(self: *Uart) void {
+    while (true) {
+        if (self.tx_w == self.tx_r) {
+            // transmit buffer is empty.
+            return;
+        }
+
+        if ((readReg(LSR) & LSR_TX_IDLE) == 0) {
+            // the UART transmit holding register is full,
+            // so we cannot give it another byte.
+            // it will interrupt when it's ready for a new byte.
+            return;
+        }
+
+        var c = self.tx_buf[self.tx_r % TX_BUF_SIZE];
+        self.tx_r += 1;
+
+        // maybe uartputc() is waiting for space in the buffer.
+        Proc.wakeup(&self.tx_r);
+
+        writeReg(THR, c);
+    }
 }
 
 fn getRegAddr(reg: usize) *usize {

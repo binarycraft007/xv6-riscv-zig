@@ -1,5 +1,6 @@
 const param = @import("param.zig");
 const riscv = @import("riscv.zig");
+const swtch = @import("swtch.zig");
 const Cpu = @import("Cpu.zig");
 const SpinLock = @import("SpinLock.zig");
 
@@ -54,10 +55,11 @@ pub const ProcState = enum {
 };
 
 const Proc = @This();
+var procs: [param.NPROC]Proc = undefined;
 
 lock: SpinLock,
 state: ProcState,
-chan: ?anyopaque,
+chan: ?*anyopaque,
 killed: bool,
 xstate: i32,
 pid: i32,
@@ -75,4 +77,70 @@ pub fn cpuId() u32 {
 
 pub fn MyCpu() *Cpu {
     return &cpus[cpuId()];
+}
+
+pub fn MyProc() *Proc {
+    SpinLock.pushOff();
+    var cpu = MyCpu();
+    var proc = cpu.proc;
+    SpinLock.popOff();
+    return proc;
+}
+
+pub fn sched() void {
+    var p = MyProc();
+
+    if (!p.lock.holding())
+        @panic("sched p->lock");
+    if (MyCpu().noff != 1)
+        @panic("sched locks");
+    if (p.state == .RUNNING)
+        @panic("sched running");
+    if (riscv.intr_get())
+        @panic("sched interruptible");
+
+    var intena = MyCpu().intena;
+    swtch.swtch(&p.context, &MyCpu().context);
+    MyCpu().intena = intena;
+}
+
+pub fn sleep(chan: *anyopaque, lock: *SpinLock) void {
+    var proc = MyProc();
+
+    // Must acquire p->lock in order to
+    // change p->state and then call sched.
+    // Once we hold p->lock, we can be
+    // guaranteed that we won't miss any wakeup
+    // (wakeup locks p->lock),
+    // so it's okay to release lk.
+
+    proc.lock.acquire(); //DOC: sleeplock1
+    // Reacquire original lock.
+    defer proc.lock.release();
+
+    lock.release();
+    defer lock.acquire();
+
+    // Go to sleep.
+    proc.chan = chan;
+    proc.state = .SLEEPING;
+
+    sched();
+
+    // Tidy up.
+    proc.chan = null;
+}
+
+// Wake up all processes sleeping on chan.
+// Must be called without any p->lock.
+pub fn wakeup(chan: *anyopaque) void {
+    for (procs) |*proc| {
+        if (proc != MyProc()) {
+            proc.lock.acquire();
+            defer proc.lock.release();
+            if (proc.state == .SLEEPING and proc.chan == chan) {
+                proc.state = .RUNNABLE;
+            }
+        }
+    }
 }
