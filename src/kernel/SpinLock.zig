@@ -1,3 +1,5 @@
+const std = @import("std");
+const assert = std.debug.assert;
 const riscv = @import("riscv.zig");
 const Proc = @import("Proc.zig");
 const Cpu = @import("Cpu.zig");
@@ -32,7 +34,7 @@ pub fn release(self: *SpinLock) void {
         @panic("release");
     self.cpu = undefined;
 
-    @atomicRmw(bool, &self.locked, .Xchg, false, .SeqCst);
+    assert(@atomicRmw(bool, &self.locked, .Xchg, false, .SeqCst));
     popOff();
 }
 
