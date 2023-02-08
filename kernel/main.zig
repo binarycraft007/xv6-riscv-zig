@@ -22,8 +22,7 @@ pub fn kmain() void {
         printf.print("\n", .{});
         printf.print("xv6 kernel is booting\n", .{});
         printf.print("\n", .{});
-        c.kinit(); // physical page allocator
-        kalloc.init();
+        kalloc.init(); // physical page allocator
         c.kvminit(); // create kernel page table
         c.kvminithart(); // turn on paging
         c.procinit(); // process table

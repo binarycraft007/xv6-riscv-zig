@@ -8,40 +8,38 @@ const mem = std.mem;
 
 extern var end: u8;
 
-var kmem = .{
-    .lock = SpinLock{},
-    .free_list = SinglyLinkedList(usize){},
-};
+var lock = SpinLock{};
+var free_list = SinglyLinkedList(usize){};
 
 pub fn init() void {
     var start = riscv.PGROUNDUP(@ptrToInt(&end));
     std.debug.assert(start % 4096 == 0);
-    print("start zig: {d}\n", .{@ptrToInt(&end)});
+    print(
+        "KernelHeap: available physical memory [0x{x}, 0x{x}]\n",
+        .{ start, memlayout.PHYSTOP },
+    );
     var pages = @intToPtr([*]u32768, start);
-    freePages(pages[0 .. (memlayout.PHYSTOP - start) / 32768]);
+    freePages(pages[0..((memlayout.PHYSTOP - start) / 4096)]);
+    print("KernelHeap: init memory done\n", .{});
 }
 
 pub fn freePages(pages: []u32768) void {
     for (pages) |*page| {
-        //freePage(page);
-        var page_start = @intToPtr([*]u8, @ptrToInt(page));
-        print("{any}\n", .{page_start[1]});
-        //free(ptr);
+        free(@intToPtr([*]u8, @ptrToInt(page))[0..riscv.PGSIZE]);
     }
 }
 
-pub fn free(page: *u8) void {
-    var slice = @intToPtr([*]u8, @ptrToInt(page));
-    const addr = @ptrToInt(page);
+pub fn free(page: []u8) void {
+    const addr = @ptrToInt(&page[0]);
 
-    if ((addr & riscv.PGSIZE) != 0) @panic("free out of PGSIZE");
-    if (addr < @ptrToInt(&end)) @panic("free out of end addr");
-    if (addr >= memlayout.PHYSTOP) @panic("free mem beyoud PHYSTOP");
+    if ((addr % riscv.PGSIZE) != 0) @panic("not PGSIZE aligned");
+    if (addr < @ptrToInt(&end)) @panic("forbit to free kernel mem");
+    if (addr >= memlayout.PHYSTOP) @panic("invalid addr to free");
 
-    mem.set(u8, slice[0..riscv.PGSIZE], 1);
+    mem.set(u8, page, 1); // Fill with junk to catch dangling refs.
 
     var free_mem = SinglyLinkedList(usize).Node{ .data = addr };
-    kmem.lock.acquire();
-    kmem.free_list.prepend(&free_mem);
-    kmem.lock.release();
+    lock.acquire();
+    free_list.prepend(&free_mem);
+    lock.release();
 }
