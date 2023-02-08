@@ -1,11 +1,14 @@
+const std = @import("std");
 const riscv = @import("riscv.zig");
 const main = @import("main.zig");
 const param = @import("param.zig");
 const memlayout = @import("memlayout.zig");
+const printf = @import("printf.zig");
 
 var timer_scratch: [param.NCPU][5]usize = undefined;
 const stack_size: usize = 4096 * param.NCPU;
 
+//extern var panicked: bool;
 extern fn timervec(...) void;
 export var stack0 align(16) = [_]u8{0} ** stack_size;
 
@@ -78,4 +81,19 @@ pub fn timerinit() void {
 
     // enable machine-mode timer interrupts.
     riscv.w_mie(riscv.r_mie() | @enumToInt(riscv.MIE.MTIE));
+}
+
+pub fn panic(
+    msg: []const u8,
+    error_return_trace: ?*std.builtin.StackTrace,
+    _: ?usize,
+) noreturn {
+    @setCold(true);
+    _ = error_return_trace;
+    printf.locking = false;
+    printf.print("panic: ", .{});
+    printf.print("{s}", .{msg});
+    printf.print("\n", .{});
+    printf.panicked = true; // freeze uart output from other CPUs
+    while (true) {}
 }

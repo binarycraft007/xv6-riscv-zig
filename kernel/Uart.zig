@@ -1,5 +1,6 @@
 const memlayout = @import("memlayout.zig");
 const SpinLock = @import("SpinLock.zig");
+const printf = @import("printf.zig");
 const Proc = @import("Proc.zig");
 
 /// the UART control registers.
@@ -30,7 +31,6 @@ tx_w: u64, // write next to uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE]
 tx_r: u64, // read next from uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE]
 
 const Uart = @This();
-const panicked = false;
 
 pub const Error = error{NotReady};
 
@@ -61,7 +61,7 @@ pub fn init() Uart {
         .tx_w = 0,
         .tx_r = 0,
         .tx_buf = [_]u8{0} ** TX_BUF_SIZE,
-        .tx_lock = SpinLock.init(),
+        .tx_lock = SpinLock{},
     };
 }
 
@@ -75,7 +75,7 @@ pub fn putc(self: *Uart, c: u8) void {
     self.tx_lock.acquire();
     defer self.tx_lock.release();
 
-    if (panicked) {
+    if (printf.panicked) {
         while (true) {}
     }
 
@@ -97,7 +97,7 @@ pub fn putcSync(self: *Uart, c: u8) void {
     _ = self;
     SpinLock.pushOff();
 
-    if (panicked) {
+    if (printf.panicked) {
         while (true) {}
     }
 
@@ -148,8 +148,10 @@ pub fn getc(self: *Uart) !void {
     }
 }
 
-fn getRegAddr(reg: usize) *usize {
-    return @intToPtr(*usize, memlayout.UART0 + reg);
+pub fn getRegAddr(reg: usize) *usize {
+    _ = reg;
+    var reg_tmp: usize = 24;
+    return @intToPtr(*usize, memlayout.UART0 + reg_tmp);
 }
 
 pub fn readReg(reg: usize) usize {
@@ -157,5 +159,6 @@ pub fn readReg(reg: usize) usize {
 }
 
 pub fn writeReg(reg: usize, value: usize) void {
-    getRegAddr(reg).* = value;
+    var ptr = getRegAddr(reg);
+    ptr.* = value;
 }

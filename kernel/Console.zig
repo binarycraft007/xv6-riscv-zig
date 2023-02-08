@@ -19,7 +19,7 @@ uart: Uart,
 
 pub fn init() Console {
     var cons = Console{
-        .lock = SpinLock.init(),
+        .lock = SpinLock{},
         .buf = [_]u8{0} ** BUF_SIZE,
         .read_idx = 0,
         .write_idx = 0,

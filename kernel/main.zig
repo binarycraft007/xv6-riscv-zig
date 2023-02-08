@@ -7,19 +7,16 @@ const c = @cImport({
 });
 const std = @import("std");
 const riscv = @import("riscv.zig");
-const Printf = @import("Printf.zig");
+const printf = @import("printf.zig");
 const Console = @import("Console.zig");
 const Atomic = std.atomic.Atomic;
 
 var started = Atomic(bool).init(false);
-pub var printf: Printf = undefined;
 
 pub fn kmain() void {
     if (c.cpuid() == 0) {
         c.consoleinit();
         //_ = Console.init();
-        c.printfinit();
-        printf = Printf.init();
         printf.print("\n", .{});
         printf.print("xv6 kernel is booting\n", .{});
         printf.print("\n", .{});
