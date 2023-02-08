@@ -314,10 +314,10 @@ pub const PageTable = *usize; // 512 PTEs
 pub const PGSIZE = 4096; // bytes per page
 pub const PGSHIFT = 12; // bits of offset within a page
 pub fn PGROUNDUP(sz: usize) usize {
-    return ((sz) + PGSIZE - 1) & ~(PGSIZE - 1);
+    return ((sz) + PGSIZE - 1) & ~@as(usize, PGSIZE - 1);
 }
 pub fn PGROUNDDOWN(a: usize) usize {
-    return ((a)) & ~(PGSIZE - 1);
+    return ((a)) & ~@as(usize, PGSIZE - 1);
 }
 pub const PTE = enum(usize) {
     V = @as(usize, 1) << 0, // valid

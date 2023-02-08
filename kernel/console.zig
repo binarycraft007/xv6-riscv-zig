@@ -10,7 +10,7 @@ const BACKSPACE = 0x100;
 var lock: SpinLock = SpinLock{};
 
 // input
-var buf: [BUF_SIZE]u8 = undefined;
+var buf: [BUF_SIZE]u8 = [_]u8{0} ** BUF_SIZE;
 var read_idx: u32 = 0; // Read index
 var write_idx: u32 = 0; // Write index
 var edit_idx: u32 = 0; // Edit index
@@ -71,7 +71,7 @@ pub fn intr(char: u8) void {
             buf[edit_idx % BUF_SIZE] = char;
             edit_idx += 1;
 
-            if (char == '\n' or char == controlCode('D') or
+            if (char == '\n' or char == control('D') or
                 edit_idx - read_idx == BUF_SIZE)
             {
                 // wake up consoleread() if a whole line (or end-of-file)
@@ -84,6 +84,6 @@ pub fn intr(char: u8) void {
     lock.release();
 }
 
-fn controlCode(char: u8) u8 {
+fn control(char: u8) u8 {
     return char - '@';
 }

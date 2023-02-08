@@ -7,21 +7,23 @@ const c = @cImport({
 });
 const std = @import("std");
 const riscv = @import("riscv.zig");
+const kalloc = @import("kalloc.zig");
 const printf = @import("printf.zig");
 const console = @import("console.zig");
+const Proc = @import("Proc.zig");
 const Atomic = std.atomic.Atomic;
 
 var started = Atomic(bool).init(false);
 
 pub fn kmain() void {
-    if (c.cpuid() == 0) {
+    if (Proc.cpuId() == 0) {
         console.init();
         c.consoleinit(); // one init step is not implementated in zig
-
         printf.print("\n", .{});
         printf.print("xv6 kernel is booting\n", .{});
         printf.print("\n", .{});
         c.kinit(); // physical page allocator
+        kalloc.init();
         c.kvminit(); // create kernel page table
         c.kvminithart(); // turn on paging
         c.procinit(); // process table
