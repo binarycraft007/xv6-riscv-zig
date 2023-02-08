@@ -2,21 +2,25 @@ const riscv = @import("riscv.zig");
 const main = @import("main.zig");
 const param = @import("param.zig");
 const memlayout = @import("memlayout.zig");
-const kernelvec = @import("kernelvec.zig");
 
 var timer_scratch: [param.NCPU][5]usize = undefined;
+const stack_size: usize = 4096 * param.NCPU;
 
-// entry.zig jumps here in machine mode on stack0.
-pub fn start() void {
+extern fn timervec(...) void;
+export var stack0 align(16) = [_]u8{0} ** stack_size;
+
+/// entry.S jumps here in machine mode on stack0.
+pub export fn start() void {
+    //const stack0 align(16) = [_]u8{0} ** stack_size;
     // set M Previous Privilege mode to Supervisor, for mret.
     var mstatus = riscv.r_mstatus();
     mstatus &= ~@as(usize, riscv.MSTATUS_MPP_MASK);
     mstatus |= @enumToInt(riscv.MSTATUS.MPP_S);
     riscv.w_mstatus(mstatus);
 
-    // set M Exception Program Counter to main, for mret.
+    // set M Exception Program Counter to kmain, for mret.
     // requires code_model = .medium
-    riscv.w_mepc(@ptrToInt(&main.main));
+    riscv.w_mepc(@ptrToInt(&main.kmain));
 
     // disable paging for now.
     riscv.w_satp(0);
@@ -44,6 +48,11 @@ pub fn start() void {
     asm volatile ("mret");
 }
 
+/// arrange to receive timer interrupts.
+/// they will arrive in machine mode at
+/// at timervec in kernelvec.S,
+/// which turns them into software interrupts for
+/// devintr() in trap.c.
 pub fn timerinit() void {
     // each CPU has a separate source of timer interrupts.
     const id = riscv.r_mhartid();
@@ -56,13 +65,13 @@ pub fn timerinit() void {
     // scratch[0..2] : space for timervec to save registers.
     // scratch[3] : address of CLINT MTIMECMP register.
     // scratch[4] : desired interval (in cycles) between timer interrupts.
-    var scratch: [*]usize = @ptrCast([*]usize, &timer_scratch[id][0]);
+    var scratch = timer_scratch[id];
     scratch[3] = @ptrToInt(memlayout.CLINT_MTIMECMP(id));
     scratch[4] = interval;
-    riscv.w_mscratch(@ptrToInt(scratch));
+    riscv.w_mscratch(@ptrToInt(&scratch));
 
     // set the machine-mode trap handler.
-    riscv.w_mtvec(@ptrToInt(&kernelvec.timervec));
+    riscv.w_mtvec(@ptrToInt(&timervec));
 
     // enable machine-mode interrupts.
     riscv.w_mstatus(riscv.r_mstatus() | @enumToInt(riscv.MSTATUS.MIE));

@@ -271,7 +271,7 @@ pub inline fn intr_off() void {
 }
 
 // are device interrupts enabled?
-pub inline fn intr_get() usize {
+pub inline fn intr_get() bool {
     return (r_sstatus() & @enumToInt(SSTATUS.SIE)) != 0;
 }
 

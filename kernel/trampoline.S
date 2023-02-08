@@ -10,6 +10,9 @@
         # a page boundary.
         #
 
+#include "riscv.h"
+#include "memlayout.h"
+
 .section trampsec
 .globl trampoline
 trampoline:
@@ -30,8 +33,7 @@ uservec:
         # each process has a separate p->trapframe memory area,
         # but it's mapped to the same virtual address
         # (TRAPFRAME) in every process's user page table.
-        # li a0, TRAPFRAME
-	li a0, 0x2000 # hardcored as it depended on c header
+        li a0, TRAPFRAME
         
         # save the user registers in TRAPFRAME
         sd ra, 40(a0)
@@ -107,8 +109,7 @@ userret:
         csrw satp, a0
         sfence.vma zero, zero
 
-        # li a0, TRAPFRAME
-	li a0, 0x2000 # hardcored as it depended on c header
+        li a0, TRAPFRAME
 
         # restore all but a0 from TRAPFRAME
         ld ra, 40(a0)

@@ -25,5 +25,5 @@ const Cpu = @This();
 proc: ?*Proc, // The process running on this cpu, or null.
 context: Context, // swtch() here to enter scheduler().
 noff: i32, // Depth of push_off() nesting.
-intena: i32, // Were interrupts enabled before push_off()?
+intena: bool, // Were interrupts enabled before push_off()?
 

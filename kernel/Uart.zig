@@ -32,6 +32,8 @@ tx_r: u64, // read next from uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE]
 const Uart = @This();
 const panicked = false;
 
+pub const Error = error{NotReady};
+
 pub fn init() Uart {
     // disable interrupts.
     writeReg(IER, 0x00);
@@ -76,6 +78,7 @@ pub fn putc(self: *Uart, c: u8) void {
     if (panicked) {
         while (true) {}
     }
+
     while (self.tx_w == self.tx_r + TX_BUF_SIZE) {
         // buffer is full.
         // wait for uartstart() to open up space in the buffer.
@@ -90,7 +93,8 @@ pub fn putc(self: *Uart, c: u8) void {
 // use interrupts, for use by kernel printf() and
 // to echo characters. it spins waiting for the uart's
 // output register to be empty.
-pub fn putcSync(c: u8) void {
+pub fn putcSync(self: *Uart, c: u8) void {
+    _ = self;
     SpinLock.pushOff();
 
     if (panicked) {
@@ -132,14 +136,26 @@ pub fn start(self: *Uart) void {
     }
 }
 
+/// read one input character from the UART.
+/// return NotReady if none is waiting.
+pub fn getc(self: *Uart) !void {
+    _ = self;
+    if (readReg(LSR) & 0x01) {
+        // input data is ready.
+        return readReg(RHR);
+    } else {
+        return error.NotReady;
+    }
+}
+
 fn getRegAddr(reg: usize) *usize {
     return @intToPtr(*usize, memlayout.UART0 + reg);
 }
 
-fn readReg(reg: usize) usize {
+pub fn readReg(reg: usize) usize {
     return getRegAddr(reg).*;
 }
 
-fn writeReg(reg: usize, value: usize) void {
+pub fn writeReg(reg: usize, value: usize) void {
     getRegAddr(reg).* = value;
 }
