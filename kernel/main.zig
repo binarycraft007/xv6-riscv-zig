@@ -8,15 +8,16 @@ const c = @cImport({
 const std = @import("std");
 const riscv = @import("riscv.zig");
 const printf = @import("printf.zig");
-const Console = @import("Console.zig");
+const console = @import("console.zig");
 const Atomic = std.atomic.Atomic;
 
 var started = Atomic(bool).init(false);
 
 pub fn kmain() void {
     if (c.cpuid() == 0) {
-        c.consoleinit();
-        //_ = Console.init();
+        console.init();
+        c.consoleinit(); // one init step is not implementated in zig
+
         printf.print("\n", .{});
         printf.print("xv6 kernel is booting\n", .{});
         printf.print("\n", .{});

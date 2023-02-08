@@ -91,9 +91,7 @@ pub fn panic(
     @setCold(true);
     _ = error_return_trace;
     printf.locking = false;
-    printf.print("panic: ", .{});
-    printf.print("{s}", .{msg});
-    printf.print("\n", .{});
+    printf.print("panic: {s}\n", .{msg});
     printf.panicked = true; // freeze uart output from other CPUs
     while (true) {}
 }

@@ -13,12 +13,11 @@ const c = @cImport({
 const std = @import("std");
 const bufPrint = std.fmt.bufPrint;
 const SpinLock = @import("SpinLock.zig");
-const Console = @import("Console.zig");
+const console = @import("console.zig");
 pub export var panicked: bool = false;
 
 var lock = SpinLock{};
 pub var locking: bool = true;
-//var cons = Console.init();
 
 pub fn print(comptime fmt: []const u8, args: anytype) void {
     const need_locking = locking;
@@ -28,16 +27,14 @@ pub fn print(comptime fmt: []const u8, args: anytype) void {
     const slice = bufPrint(&buf, fmt, args) catch |err| {
         @panic(@errorName(err));
     };
-    for (slice) |char| c.consputc(char);
+    for (slice) |char| console.putc(char);
 
     if (need_locking) lock.release();
 }
 
 export fn panic(s: [*:0]u8) noreturn {
     locking = false;
-    print("panic: ", .{});
-    print("{s}", .{s});
-    print("\n", .{});
+    print("panic: {s}\n", .{s});
     panicked = true; // freeze uart output from other CPUs
     while (true) {}
 }
