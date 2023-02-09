@@ -6,6 +6,8 @@ const c = @cImport({
     @cInclude("kernel/defs.h");
 });
 const std = @import("std");
+const log_root = @import("log.zig");
+const kmain_log = std.log.scoped(.kmain);
 const riscv = @import("riscv.zig");
 const kalloc = @import("kalloc.zig");
 const printf = @import("printf.zig");
@@ -19,9 +21,7 @@ pub fn kmain() void {
     if (Proc.cpuId() == 0) {
         console.init();
         c.consoleinit(); // one init step is not implementated in zig
-        printf.print("\n", .{});
-        printf.print("xv6 kernel is booting\n", .{});
-        printf.print("\n", .{});
+        kmain_log.info("xv6 kernel is booting\n", .{});
         c.kinit();
         kalloc.init(); // physical page allocator
         c.kvminit(); // create kernel page table
@@ -40,7 +40,7 @@ pub fn kmain() void {
     } else {
         while (!started.load(.SeqCst)) {}
 
-        printf.print("hart {d} starting\n", .{c.cpuid()});
+        kmain_log.info("hart {d} starting\n", .{Proc.cpuId()});
         c.kvminithart(); // turn on paging
         c.trapinithart(); // install kernel trap vector
         c.plicinithart(); // ask PLIC for device interrupts

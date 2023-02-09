@@ -1,7 +1,7 @@
 const memlayout = @import("memlayout.zig");
 const SpinLock = @import("SpinLock.zig");
 const console = @import("console.zig");
-const printf = @import("printf.zig");
+const log_root = @import("log.zig");
 const Proc = @import("Proc.zig");
 
 /// the UART control registers.
@@ -67,9 +67,7 @@ pub fn putc(c: u8) void {
     tx_lock.acquire();
     defer tx_lock.release();
 
-    if (printf.panicked) {
-        while (true) {}
-    }
+    if (log_root.panicked) while (true) {};
 
     while (tx_w == tx_r + TX_BUF_SIZE) {
         // buffer is full.
@@ -88,9 +86,7 @@ pub fn putc(c: u8) void {
 pub fn putcSync(c: u8) void {
     SpinLock.pushOff();
 
-    if (printf.panicked) {
-        while (true) {}
-    }
+    if (log_root.panicked) while (true) {};
 
     // wait for Transmit Holding Empty to be set in LSR.
     while ((readReg(LSR) & LSR_TX_IDLE) == 0) {}

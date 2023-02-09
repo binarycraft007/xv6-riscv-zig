@@ -28,15 +28,19 @@ pub fn init() void {
 /// send one character to the uart.
 /// called by printf(), and to echo input characters,
 /// but not from write().
-pub fn putc(char: u8) void {
-    if (char == BACKSPACE) {
+pub fn writeByte(byte: u8) void {
+    if (byte == BACKSPACE) {
         // if the user typed backspace, overwrite with a space.
         uart.putcSync(ascii.control_code.bs);
         uart.putcSync(' ');
         uart.putcSync(ascii.control_code.bs);
     } else {
-        uart.putcSync(char);
+        uart.putcSync(byte);
     }
+}
+
+pub fn writeBytes(bytes: []const u8) void {
+    for (bytes) |byte| writeByte(byte);
 }
 
 /// the console input interrupt handler.
@@ -53,19 +57,19 @@ pub fn intr(char: u8) void {
             buf[(edit_idx - 1) % BUF_SIZE] != '\n')
         {
             edit_idx -= 1;
-            putc(BACKSPACE);
+            writeByte(BACKSPACE);
         },
         'H', '\x7f' => {
             if (edit_idx != write_idx) {
                 edit_idx -= 1;
-                putc(BACKSPACE);
+                writeByte(BACKSPACE);
             }
         },
         else => if (char != 0 and edit_idx - read_idx < BUF_SIZE) {
             char = if (char == '\r') '\n' else char;
 
             // echo back to the user.
-            putc(char);
+            writeByte(char);
 
             // store for consumption by consoleread().
             buf[edit_idx % BUF_SIZE] = char;

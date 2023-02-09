@@ -31,10 +31,3 @@ pub fn print(comptime fmt: []const u8, args: anytype) void {
 
     if (need_locking) lock.release();
 }
-
-export fn panic(s: [*:0]u8) noreturn {
-    locking = false;
-    print("panic: {s}\n", .{s});
-    panicked = true; // freeze uart output from other CPUs
-    while (true) {}
-}
