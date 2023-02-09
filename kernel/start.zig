@@ -3,7 +3,6 @@ const riscv = @import("riscv.zig");
 const main = @import("main.zig");
 const param = @import("param.zig");
 const memlayout = @import("memlayout.zig");
-const printf = @import("printf.zig");
 const log_root = @import("log.zig");
 
 var timer_scratch: [param.NCPU][5]usize = undefined;

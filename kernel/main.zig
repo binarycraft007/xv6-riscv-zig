@@ -10,7 +10,6 @@ const log_root = @import("log.zig");
 const kmain_log = std.log.scoped(.kmain);
 const riscv = @import("riscv.zig");
 const kalloc = @import("kalloc.zig");
-const printf = @import("printf.zig");
 const console = @import("console.zig");
 const Proc = @import("Proc.zig");
 const Atomic = std.atomic.Atomic;
@@ -23,7 +22,7 @@ pub fn kmain() void {
         c.consoleinit(); // one init step is not implementated in zig
         kmain_log.info("xv6 kernel is booting\n", .{});
         c.kinit();
-        kalloc.init(); // physical page allocator
+        //kalloc.init(); // physical page allocator
         c.kvminit(); // create kernel page table
         c.kvminithart(); // turn on paging
         c.procinit(); // process table

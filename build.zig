@@ -18,7 +18,6 @@ pub fn build(b: *std.build.Builder) !void {
     const kernel_src = [_][]const u8{
         "kernel/entry.S", // Very first boot instructions.
         "kernel/console.c", // Connect to the user keyboard and screen.
-        "kernel/printf.c", // Formatted output to the console.
         "kernel/uart.c", // Serial-port console device driver.
         "kernel/kalloc.c", // Physical page allocator.
         "kernel/spinlock.c", // Locks that don’t yield the CPU.

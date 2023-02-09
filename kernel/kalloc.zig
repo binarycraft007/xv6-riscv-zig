@@ -2,7 +2,6 @@ const std = @import("std");
 const riscv = @import("riscv.zig");
 const memlayout = @import("memlayout.zig");
 const SpinLock = @import("SpinLock.zig");
-const print = @import("printf.zig").print;
 const TailQueue = std.TailQueue;
 const kalloc_log = std.log.scoped(.kalloc);
 const mem = std.mem;
@@ -15,13 +14,13 @@ var free_list = TailQueue([]u8){};
 pub fn init() void {
     var start = riscv.PGROUNDUP(@ptrToInt(&end));
     std.debug.assert(start % 4096 == 0);
-    kalloc_log.info(
+    kalloc_log.debug(
         "available physical memory [0x{x}, 0x{x}]\n",
         .{ start, memlayout.PHYSTOP },
     );
     var pages = @intToPtr([*]u32768, start);
     freePages(pages[0..((memlayout.PHYSTOP - start) / 4096)]);
-    kalloc_log.info("init memory done\n", .{});
+    kalloc_log.debug("init memory done\n", .{});
 }
 
 pub fn freePages(pages: []u32768) void {
