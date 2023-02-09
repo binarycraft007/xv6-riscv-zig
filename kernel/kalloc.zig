@@ -3,13 +3,13 @@ const riscv = @import("riscv.zig");
 const memlayout = @import("memlayout.zig");
 const SpinLock = @import("SpinLock.zig");
 const print = @import("printf.zig").print;
-const SinglyLinkedList = std.SinglyLinkedList;
+const TailQueue = std.TailQueue;
 const mem = std.mem;
 
 extern var end: u8;
 
 var lock = SpinLock{};
-var free_list = SinglyLinkedList(usize){};
+var free_list = TailQueue([]u8){};
 
 pub fn init() void {
     var start = riscv.PGROUNDUP(@ptrToInt(&end));
@@ -24,12 +24,16 @@ pub fn init() void {
 }
 
 pub fn freePages(pages: []u32768) void {
-    for (pages) |*page| {
-        free(@intToPtr([*]u8, @ptrToInt(page))[0..riscv.PGSIZE]);
-    }
+    for (pages) |*page| free(mem.asBytes(page));
 }
 
+/// Free the page of physical memory pointed at by start,
+/// which normally should have been returned by a
+/// call to kalloc().  (The exception is when
+/// initializing the allocator; see kinit above.)
 pub fn free(page: []u8) void {
+    std.debug.assert(page.len == riscv.PGSIZE);
+
     const addr = @ptrToInt(&page[0]);
 
     if ((addr % riscv.PGSIZE) != 0) @panic("not PGSIZE aligned");
@@ -38,8 +42,24 @@ pub fn free(page: []u8) void {
 
     mem.set(u8, page, 1); // Fill with junk to catch dangling refs.
 
-    var free_mem = SinglyLinkedList(usize).Node{ .data = addr };
+    var free_mem = TailQueue([]u8).Node{ .data = page };
     lock.acquire();
-    free_list.prepend(&free_mem);
+    free_list.append(&free_mem);
     lock.release();
+}
+
+/// Allocate one 4096-byte page of physical memory.
+/// Returns a pointer that the kernel can use.
+/// Returns error if the memory cannot be allocated.
+pub fn alloc() ![]u8 {
+    lock.acquire();
+    var list_old = free_list;
+    if (list_old.first) |node| list_old.remove(node);
+    lock.release();
+
+    if (list_old.first) |node| {
+        mem.set(u8, node.data, 5);
+        return node.data;
+    }
+    return error.KallocFailed;
 }
