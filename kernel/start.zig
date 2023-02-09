@@ -5,15 +5,20 @@ const param = @import("param.zig");
 const memlayout = @import("memlayout.zig");
 const log_root = @import("log.zig");
 
+// a scratch area per CPU for machine-mode timer interrupts.
 var timer_scratch: [param.NCPU][5]usize = undefined;
+
+// entry.S needs one stack per CPU.
 const stack_size: usize = 4096 * param.NCPU;
 
+// assembly code in kernelvec.S for machine-mode timer interrupt.
 extern fn timervec(...) void;
+
+// entry.S needs one stack per CPU.
 export var stack0 align(16) = [_]u8{0} ** stack_size;
 
 /// entry.S jumps here in machine mode on stack0.
 pub export fn start() void {
-    //const stack0 align(16) = [_]u8{0} ** stack_size;
     // set M Previous Privilege mode to Supervisor, for mret.
     var mstatus = riscv.r_mstatus();
     mstatus &= ~@as(usize, riscv.MSTATUS_MPP_MASK);

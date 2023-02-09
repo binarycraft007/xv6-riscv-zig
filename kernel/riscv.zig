@@ -319,13 +319,11 @@ pub fn PGROUNDUP(sz: usize) usize {
 pub fn PGROUNDDOWN(a: usize) usize {
     return ((a)) & ~@as(usize, PGSIZE - 1);
 }
-pub const PTE = enum(usize) {
-    V = @as(usize, 1) << 0, // valid
-    R = @as(usize, 1) << 1,
-    W = @as(usize, 1) << 2,
-    X = @as(usize, 1) << 3,
-    U = @as(usize, 1) << 4, // user can access
-};
+pub const PTE_V = @as(u32, 1) << 0; // valid
+pub const PTE_R = @as(u32, 1) << 1;
+pub const PTE_W = @as(u32, 1) << 2;
+pub const PTE_X = @as(u32, 1) << 3;
+pub const PTE_U = @as(u32, 1) << 4; // user can access
 
 // shift a physical address to the right place for a PTE.
 pub fn PA2PTE(pa: usize) usize {
@@ -344,7 +342,7 @@ pub fn PXSHIFT(level: usize) usize {
     return PGSHIFT + @as(usize, 9 * level);
 }
 pub fn PX(level: usize, va: usize) usize {
-    return va >> PXSHIFT(level) & PXMASK;
+    return va >> @intCast(u6, PXSHIFT(level) & PXMASK);
 }
 
 // one beyond the highest possible virtual address.

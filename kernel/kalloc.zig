@@ -15,7 +15,7 @@ pub fn init() void {
     var start = riscv.PGROUNDUP(@ptrToInt(&end));
     std.debug.assert(start % 4096 == 0);
     kalloc_log.debug(
-        "available physical memory [0x{x}, 0x{x}]\n",
+        "available [0x{x} - 0x{x}]\n",
         .{ start, memlayout.PHYSTOP },
     );
     var pages = @intToPtr([*]u32768, start);
