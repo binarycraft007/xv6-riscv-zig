@@ -16,7 +16,7 @@ const mem = std.mem;
 extern var end: [*]u8;
 
 var lock = SpinLock{};
-var free_list = SinglyLinkedList([]u8){};
+var free_list = SinglyLinkedList([]const u8){};
 
 pub fn init() void {
     var start = mem.alignForward(@ptrToInt(&end), mem.page_size);
@@ -63,9 +63,6 @@ pub fn allocPage() ![]u8 {
     lock.release();
 
     if (first_node) |node| {
-        if (!mem.isAligned(@ptrToInt(&node.data[0]), riscv.PGSIZE)) {
-            @panic("kalloc failed, memory os is not page aligned");
-        }
         kalloc_log.debug("alloc page start: {p}\n", .{&node.data[0]});
         mem.set(u8, node.data[0..riscv.PGSIZE], 5);
         return node.data;

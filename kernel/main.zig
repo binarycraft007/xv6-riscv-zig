@@ -24,7 +24,7 @@ pub fn kmain() void {
         kmain_log.info("xv6 kernel is booting\n", .{});
         //c.kinit();
         kalloc.init(); // physical page allocator
-        kvm.init();
+        //kvm.init();
         c.kvminit(); // create kernel page table
         c.kvminithart(); // turn on paging
         c.procinit(); // process table

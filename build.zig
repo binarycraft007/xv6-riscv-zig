@@ -19,7 +19,7 @@ pub fn build(b: *std.build.Builder) !void {
         "kernel/entry.S", // Very first boot instructions.
         "kernel/console.c", // Connect to the user keyboard and screen.
         "kernel/uart.c", // Serial-port console device driver.
-        "kernel/kalloc.c", // Physical page allocator.
+        //"kernel/kalloc.c", // Physical page allocator.
         "kernel/spinlock.c", // Locks that don’t yield the CPU.
         "kernel/string.c", // C string and byte-array library.
         "kernel/vm.c", // Manage page tables and address spaces.
