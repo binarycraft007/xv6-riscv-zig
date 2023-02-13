@@ -1,26 +1,21 @@
-const c = @cImport({
-    @cInclude("kernel/types.h");
-    @cInclude("kernel/param.h");
-    @cInclude("kernel/memlayout.h");
-    @cInclude("kernel/riscv.h");
-    @cInclude("kernel/defs.h");
-});
 const std = @import("std");
 const riscv = @import("riscv.zig");
 const memlayout = @import("memlayout.zig");
 const SpinLock = @import("SpinLock.zig");
-const SinglyLinkedList = std.SinglyLinkedList;
+const Stack = std.atomic.Stack;
 const kalloc_log = std.log.scoped(.kalloc);
 const mem = std.mem;
 
 extern var end: [*]u8;
 
-var lock = SpinLock{};
-var free_list = SinglyLinkedList([]u8){};
+var lock: SpinLock = SpinLock{};
+var free_pages: []u8 = undefined;
 
 pub fn init() void {
+    free_pages.len = 0;
+    free_pages.ptr = @intToPtr([*]u8, memlayout.PHYSTOP);
     var start = mem.alignForward(@ptrToInt(&end), mem.page_size);
-    var ptr = @intToPtr([*]u8, start);
+    var ptr = @alignCast(mem.page_size, @intToPtr([*]u8, start));
     kalloc_log.debug(
         "available [0x{x} - 0x{x}]\n",
         .{ start, memlayout.PHYSTOP },
@@ -43,14 +38,18 @@ pub fn freePages(pages: []u8) void {
 pub fn freePage(page: []u8) void {
     const addr = @ptrToInt(&page[0]);
 
-    if (!mem.isAligned(addr, riscv.PGSIZE)) @panic("not aligned");
-    if (addr < @ptrToInt(&end)) @panic("forbit to free kernel mem");
-    if (addr >= memlayout.PHYSTOP) @panic("invalid addr to free");
+    if (!mem.isAligned(addr, riscv.PGSIZE))
+        @panic("not aligned");
+    if (addr < @ptrToInt(&end))
+        @panic("forbit to free kernel mem");
+    if (addr >= memlayout.PHYSTOP)
+        @panic("invalid addr to free");
 
     mem.set(u8, page[0..riscv.PGSIZE], 1);
 
     lock.acquire();
-    free_list.prepend(&SinglyLinkedList([]u8).Node{ .data = page });
+    free_pages.len += riscv.PGSIZE;
+    free_pages.ptr -= riscv.PGSIZE;
     lock.release();
 }
 
@@ -58,19 +57,17 @@ pub fn freePage(page: []u8) void {
 /// Returns a pointer that the kernel can use.
 /// Returns error if the memory cannot be allocated.
 pub fn allocPage() ![]u8 {
+    var page = free_pages[(free_pages.len - riscv.PGSIZE)..];
     lock.acquire();
-    var first_node = free_list.popFirst();
+    free_pages.len -= riscv.PGSIZE;
     lock.release();
 
-    if (first_node) |node| {
-        if (!mem.isAligned(@ptrToInt(&node.data[0]), riscv.PGSIZE)) {
-            @panic("kalloc failed, memory os is not page aligned");
-        }
-        kalloc_log.debug("alloc page start: {p}\n", .{&node.data[0]});
-        mem.set(u8, node.data[0..riscv.PGSIZE], 5);
-        return node.data;
+    if (!mem.isAligned(@ptrToInt(&page[0]), riscv.PGSIZE)) {
+        return error.KallocFailed;
     }
-    return error.KallocFailed;
+
+    mem.set(u8, page, 5);
+    return page;
 }
 
 /// wrapper for allocPage used by c code
