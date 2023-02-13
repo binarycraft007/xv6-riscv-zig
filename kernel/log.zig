@@ -1,4 +1,5 @@
 const std = @import("std");
+const mem = std.mem;
 const fmt = std.fmt;
 const SpinLock = @import("SpinLock.zig");
 const console = @import("console.zig");
@@ -39,15 +40,18 @@ pub fn klogFn(
 
 export fn panic(s: [*:0]u8) noreturn {
     @setCold(true);
-    const panic_log = std.log.scoped(.panic);
     locking = false;
-    panic_log.err("{s}\n", .{s});
+    console.writeBytes("!KERNEL PANIC!\n");
+    console.writeBytes(mem.span(s));
+    console.writeBytes("\n");
     panicked = true; // freeze uart output from other CPUs
     while (true) {}
 }
 
 pub fn print(comptime format: []const u8, args: anytype) void {
-    fmt.format(Writer{ .context = {} }, format, args) catch unreachable;
+    fmt.format(Writer{ .context = {} }, format, args) catch |err| {
+        @panic("format: " ++ @errorName(err));
+    };
 }
 
 pub export fn printf(format: [*:0]const u8, ...) void {
@@ -57,12 +61,17 @@ pub export fn printf(format: [*:0]const u8, ...) void {
     if (std.mem.span(format).len == 0) @panic("null fmt");
 
     var ap = @cVaStart();
+    var skip_idx: usize = undefined;
     for (std.mem.span(format)) |byte, i| {
+        if (i == skip_idx) {
+            continue;
+        }
         if (byte != '%') {
             console.writeByte(byte);
             continue;
         }
         var c = format[i + 1] & 0xff;
+        skip_idx = i + 1;
         if (c == 0) break;
         switch (c) {
             'd' => print("{d}", .{@cVaArg(&ap, c_int)}),

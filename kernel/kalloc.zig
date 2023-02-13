@@ -18,8 +18,9 @@ pub fn init() void {
         "available [0x{x} - 0x{x}]\n",
         .{ start, memlayout.PHYSTOP },
     );
+    kalloc_log.debug("start init kernel page allocator\n", .{});
     freePages(ptr[0..(memlayout.PHYSTOP - start)]);
-    kalloc_log.debug("init memory done\n", .{});
+    kalloc_log.debug("init kernel page allocator success\n", .{});
 }
 
 pub fn freePages(pages: []u8) void {

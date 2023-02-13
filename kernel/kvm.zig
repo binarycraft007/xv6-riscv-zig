@@ -10,10 +10,12 @@ extern var etext: u8;
 extern var trampoline: u8;
 
 var kernel_page: []usize = undefined;
+extern var kernel_pagetable: [*]usize;
 
 pub fn init() void {
     kvm_log.debug("start init kernel page table\n", .{});
     kernel_page = make() catch |err| @panic(@errorName(err));
+    kernel_pagetable = kernel_page.ptr;
     kvm_log.debug("kernel page table init success\n", .{});
 }
 
@@ -55,7 +57,7 @@ pub fn make() ![]usize {
             memlayout.KERNBASE,
             @ptrToInt(&etext) - memlayout.KERNBASE,
             memlayout.KERNBASE,
-            riscv.PTE_R | riscv.PTE_W,
+            riscv.PTE_R | riscv.PTE_X,
         );
 
         // map kernel data and the physical RAM we'll make use of.
@@ -74,7 +76,7 @@ pub fn make() ![]usize {
             memlayout.TRAMPOLINE,
             riscv.PGSIZE,
             @ptrToInt(&trampoline),
-            riscv.PTE_R | riscv.PTE_W,
+            riscv.PTE_R | riscv.PTE_X,
         );
 
         try Proc.mapStacks(kpgtbl);
@@ -84,10 +86,10 @@ pub fn make() ![]usize {
     return error.FailedToInitKvm;
 }
 
-//export fn kvmmake() [*]usize {
-//    var pagetable = make() catch |err| @panic(@errorName(err));
-//    return pagetable.ptr;
-//}
+export fn kvmmake() [*]usize {
+    var pagetable = make() catch |err| @panic(@errorName(err));
+    return pagetable.ptr;
+}
 
 pub fn sliceToPageTable(page: []u8) ?[]usize {
     var kpgtbl = mem.alignInSlice(page, @alignOf([*]usize));

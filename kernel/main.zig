@@ -22,11 +22,8 @@ pub fn kmain() void {
         console.init();
         c.consoleinit(); // one init step is not implementated in zig
         kmain_log.info("xv6 kernel is booting\n", .{});
-        //c.kinit();
         kalloc.init(); // physical page allocator
-        //kvm.init();
-        //while (true) {}
-        c.kvminit(); // create kernel page table
+        kvm.init(); // create kernel page table
         c.kvminithart(); // turn on paging
         c.procinit(); // process table
         c.trapinit(); // trap vectors
