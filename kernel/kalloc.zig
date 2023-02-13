@@ -30,7 +30,7 @@ pub fn freePages(pages: []u8) void {
 
     var i: usize = 0;
     while ((i + 4096) <= pages.len) : (i += 4096) {
-        freePage(@ptrCast([*]u8, &pages[i])[0..riscv.PGSIZE]);
+        freePage(pages[i..].ptr[0..riscv.PGSIZE]);
     }
 }
 
