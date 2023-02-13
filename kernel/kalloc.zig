@@ -12,8 +12,6 @@ var lock: SpinLock = SpinLock{};
 var free_pages: []u8 = undefined;
 
 pub fn init() void {
-    free_pages.len = 0;
-    free_pages.ptr = @intToPtr([*]u8, memlayout.PHYSTOP);
     var start = mem.alignForward(@ptrToInt(&end), mem.page_size);
     var ptr = @alignCast(mem.page_size, @intToPtr([*]u8, start));
     kalloc_log.debug(
@@ -25,6 +23,11 @@ pub fn init() void {
 }
 
 pub fn freePages(pages: []u8) void {
+    lock.acquire();
+    free_pages.len = 0;
+    free_pages.ptr = @intToPtr([*]u8, memlayout.PHYSTOP);
+    lock.release();
+
     var i: usize = 0;
     while ((i + 4096) <= pages.len) : (i += 4096) {
         freePage(@ptrCast([*]u8, &pages[i])[0..riscv.PGSIZE]);
