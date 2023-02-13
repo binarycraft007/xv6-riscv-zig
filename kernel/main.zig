@@ -24,7 +24,7 @@ pub fn kmain() void {
         kmain_log.info("xv6 kernel is booting\n", .{});
         kalloc.init(); // physical page allocator
         kvm.init(); // create kernel page table
-        c.kvminithart(); // turn on paging
+        kvm.initHart(); // turn on paging
         c.procinit(); // process table
         c.trapinit(); // trap vectors
         c.trapinithart(); // install kernel trap vector
@@ -40,7 +40,7 @@ pub fn kmain() void {
         while (!started.load(.SeqCst)) {}
 
         kmain_log.info("hart {d} starting\n", .{Proc.cpuId()});
-        c.kvminithart(); // turn on paging
+        kvm.initHart(); // turn on paging
         c.trapinithart(); // install kernel trap vector
         c.plicinithart(); // ask PLIC for device interrupts
     }
