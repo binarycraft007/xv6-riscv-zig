@@ -12,6 +12,13 @@ extern var trampoline: u8;
 var kernel_page: []usize = undefined;
 extern var kernel_pagetable: [*]usize;
 
+pub const MapPageOptions = struct {
+    virt_addr: usize,
+    phy_addr: usize,
+    size: usize,
+    perm: usize,
+};
+
 pub fn init() void {
     kvm_log.debug("start init kernel page table\n", .{});
     kernel_page = make() catch |err| @panic(@errorName(err));
@@ -27,56 +34,68 @@ pub fn make() ![]usize {
         // uart registers
         try mapPages(
             kpgtbl,
-            memlayout.UART0,
-            riscv.PGSIZE,
-            memlayout.UART0,
-            riscv.PTE_R | riscv.PTE_W,
+            .{
+                .virt_addr = memlayout.UART0,
+                .phy_addr = memlayout.UART0,
+                .size = mem.page_size,
+                .perm = riscv.PTE_R | riscv.PTE_W,
+            },
         );
 
         // virtio mmio disk interface
         try mapPages(
             kpgtbl,
-            memlayout.VIRTIO0,
-            riscv.PGSIZE,
-            memlayout.VIRTIO0,
-            riscv.PTE_R | riscv.PTE_W,
+            .{
+                .virt_addr = memlayout.VIRTIO0,
+                .phy_addr = memlayout.VIRTIO0,
+                .size = mem.page_size,
+                .perm = riscv.PTE_R | riscv.PTE_W,
+            },
         );
 
         // PLIC
         try mapPages(
             kpgtbl,
-            memlayout.PLIC,
-            0x400000,
-            memlayout.PLIC,
-            riscv.PTE_R | riscv.PTE_W,
+            .{
+                .virt_addr = memlayout.PLIC,
+                .phy_addr = memlayout.PLIC,
+                .size = 0x400000,
+                .perm = riscv.PTE_R | riscv.PTE_W,
+            },
         );
 
         // map kernel text executable and read-only.
         try mapPages(
             kpgtbl,
-            memlayout.KERNBASE,
-            @ptrToInt(&etext) - memlayout.KERNBASE,
-            memlayout.KERNBASE,
-            riscv.PTE_R | riscv.PTE_X,
+            .{
+                .virt_addr = memlayout.KERNBASE,
+                .phy_addr = memlayout.KERNBASE,
+                .size = @ptrToInt(&etext) - memlayout.KERNBASE,
+                .perm = riscv.PTE_R | riscv.PTE_X,
+            },
         );
 
         // map kernel data and the physical RAM we'll make use of.
         try mapPages(
             kpgtbl,
-            @ptrToInt(&etext),
-            memlayout.PHYSTOP - @ptrToInt(&etext),
-            @ptrToInt(&etext),
-            riscv.PTE_R | riscv.PTE_W,
+            .{
+                .virt_addr = @ptrToInt(&etext),
+                .phy_addr = @ptrToInt(&etext),
+                .size = memlayout.PHYSTOP - @ptrToInt(&etext),
+                .perm = riscv.PTE_R | riscv.PTE_W,
+            },
         );
 
         // map the trampoline for trap entry/exit to
         // the highest virtual address in the kernel.
         try mapPages(
             kpgtbl,
-            memlayout.TRAMPOLINE,
-            riscv.PGSIZE,
-            @ptrToInt(&trampoline),
-            riscv.PTE_R | riscv.PTE_X,
+            .{
+                .virt_addr = memlayout.TRAMPOLINE,
+                .phy_addr = @ptrToInt(&trampoline),
+                .size = mem.page_size,
+                .perm = riscv.PTE_R | riscv.PTE_X,
+            },
         );
 
         try Proc.mapStacks(kpgtbl);
@@ -105,12 +124,13 @@ pub fn sliceToPageTable(page: []u8) ?[]usize {
 /// physical addresses starting at pa. va and size might not
 /// be page-aligned. Returns 0 on success, -1 if walk() couldn't
 /// allocate a needed page-table page.
-pub fn mapPages(page: []usize, va: usize, size: usize, pa: usize, perm: usize) !void {
-    if (size == 0) return error.SizeCannotBeZero;
+pub fn mapPages(page: []usize, opts: MapPageOptions) !void {
+    if (opts.size == 0) return error.SizeCannotBeZero;
 
-    var pa_var: usize = pa;
-    var addr = mem.alignBackward(va, mem.page_size);
-    var last = mem.alignBackward(va + size - 1, mem.page_size);
+    var pa_var: usize = opts.phy_addr;
+    const last_base = opts.virt_addr + opts.size - 1;
+    var addr = mem.alignBackward(opts.virt_addr, mem.page_size);
+    const last = mem.alignBackward(last_base, mem.page_size);
 
     while (true) : ({
         addr += riscv.PGSIZE;
@@ -118,7 +138,7 @@ pub fn mapPages(page: []usize, va: usize, size: usize, pa: usize, perm: usize) !
     }) {
         var pte = try walk(page, addr, true);
         if ((pte.* & riscv.PTE_V) > 0) return error.ReMap;
-        pte.* = riscv.PA2PTE(pa_var) | perm | riscv.PTE_V;
+        pte.* = riscv.PA2PTE(pa_var) | opts.perm | riscv.PTE_V;
         if (addr == last) break;
     }
     return;

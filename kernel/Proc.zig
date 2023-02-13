@@ -1,3 +1,4 @@
+const std = @import("std");
 const param = @import("param.zig");
 const riscv = @import("riscv.zig");
 const swtch = @import("swtch.zig");
@@ -6,6 +7,7 @@ const kvm = @import("kvm.zig");
 const kalloc = @import("kalloc.zig");
 const memlayout = @import("memlayout.zig");
 const SpinLock = @import("SpinLock.zig");
+const mem = std.mem;
 
 pub var cpus: [param.NCPU]Cpu = undefined;
 
@@ -154,10 +156,12 @@ pub fn mapStacks(kpgtbl: []usize) !void {
         var va = memlayout.KSTACK(i);
         try kvm.mapPages(
             kpgtbl,
-            va,
-            riscv.PGSIZE,
-            @ptrToInt(&pa[0]),
-            riscv.PTE_R | riscv.PTE_W,
+            .{
+                .virt_addr = va,
+                .phy_addr = @ptrToInt(&pa[0]),
+                .size = mem.page_size,
+                .perm = riscv.PTE_R | riscv.PTE_W,
+            },
         );
     }
 }
