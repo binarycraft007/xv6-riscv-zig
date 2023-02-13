@@ -7,10 +7,10 @@ const memlayout = @import("memlayout.zig");
 const Proc = @import("Proc.zig");
 
 extern var etext: u8;
-extern var trampoline: u8;
+extern fn trampoline(...) void;
 
 var kernel_page: []usize = undefined;
-extern var kernel_pagetable: [*]usize;
+extern var kernel_pagetable: [*]usize; // ToDo: should be removed
 
 pub const MapPageOptions = struct {
     virt_addr: usize,
@@ -19,10 +19,15 @@ pub const MapPageOptions = struct {
     perm: usize,
 };
 
+pub const PageWalkOptions = struct {
+    virt_addr: usize,
+    alloc: bool,
+};
+
 pub fn init() void {
     kvm_log.debug("start init kernel page table\n", .{});
     kernel_page = make() catch |err| @panic(@errorName(err));
-    kernel_pagetable = kernel_page.ptr;
+    kernel_pagetable = kernel_page.ptr; // should be removed
     kvm_log.debug("kernel page table init success\n", .{});
 }
 
@@ -136,7 +141,7 @@ pub fn mapPages(page: []usize, opts: MapPageOptions) !void {
         addr += riscv.PGSIZE;
         pa_var += riscv.PGSIZE;
     }) {
-        var pte = try walk(page, addr, true);
+        var pte = try walk(page, .{ .virt_addr = addr, .alloc = true });
         if ((pte.* & riscv.PTE_V) > 0) return error.ReMap;
         pte.* = riscv.PA2PTE(pa_var) | opts.perm | riscv.PTE_V;
         if (addr == last) break;
@@ -156,18 +161,18 @@ pub fn mapPages(page: []usize, opts: MapPageOptions) !void {
 ///   21..29 -- 9 bits of level-1 index.
 ///   12..20 -- 9 bits of level-0 index.
 ///    0..11 -- 12 bits of byte offset within the page.
-pub fn walk(page: []usize, va: usize, alloc: bool) !*usize {
+pub fn walk(page: []usize, opts: PageWalkOptions) !*usize {
     var page_var = page;
 
-    if (va >= riscv.MAXVA) return error.ExceedsMaxVA;
+    if (opts.virt_addr >= riscv.MAXVA) return error.ExceedsMaxVA;
 
     var level: usize = 2;
     while (level > 0) : (level -= 1) {
-        var pte = &page_var[riscv.PX(level, va)];
+        var pte = &page_var[riscv.PX(level, opts.virt_addr)];
         if ((pte.* & riscv.PTE_V) > 0) {
             page_var.ptr = @intToPtr([*]usize, riscv.PTE2PA(pte.*));
         } else {
-            if (!alloc) return error.PageWalkFailed;
+            if (!opts.alloc) return error.PageWalkFailed;
             page_var = sliceToPageTable(try kalloc.allocPage()) orelse {
                 return error.PageWalkFailed;
             };
@@ -176,7 +181,21 @@ pub fn walk(page: []usize, va: usize, alloc: bool) !*usize {
         }
     }
 
-    return &page_var[riscv.PX(0, va)];
+    return &page_var[riscv.PX(0, opts.virt_addr)];
+}
+
+// Look up a virtual address, return the physical address,
+// or 0 if not mapped.
+// Can only be used to look up user pages.
+pub fn walkAddr(page: []u8, addr: usize) !usize {
+    if (addr >= riscv.MAXVA) return error.ExceedsMaxVA;
+
+    var pte = try walk(page, .{ .virt_addr = addr, .alloc = false });
+
+    if ((pte.* & riscv.PTE_V) == 0) return error.VirtAddr;
+    if ((pte.* & riscv.PTE_U) == 0) return error.UserAddr;
+
+    return riscv.PTE2PA(pte.*);
 }
 
 /// Switch h/w page table register to the kernel's page table,

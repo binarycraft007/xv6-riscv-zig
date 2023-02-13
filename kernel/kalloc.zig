@@ -6,7 +6,7 @@ const Stack = std.atomic.Stack;
 const kalloc_log = std.log.scoped(.kalloc);
 const mem = std.mem;
 
-extern var end: [*]u8;
+extern var end: u8;
 
 var lock: SpinLock = SpinLock{};
 var free_pages: []u8 = undefined;
