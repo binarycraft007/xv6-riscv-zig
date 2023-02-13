@@ -25,6 +25,7 @@ pub fn kmain() void {
         //c.kinit();
         kalloc.init(); // physical page allocator
         //kvm.init();
+        //while (true) {}
         c.kvminit(); // create kernel page table
         c.kvminithart(); // turn on paging
         c.procinit(); // process table

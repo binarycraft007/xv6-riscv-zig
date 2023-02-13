@@ -309,7 +309,7 @@ pub fn sfence_vma() void {
 }
 
 pub const pte_t = usize;
-pub const PageTable = *usize; // 512 PTEs
+pub const PageTable = [*]usize; // 512 PTEs
 
 pub const PGSIZE = 4096; // bytes per page
 pub const PGSHIFT = 12; // bits of offset within a page
@@ -342,7 +342,7 @@ pub fn PXSHIFT(level: usize) usize {
     return PGSHIFT + @as(usize, 9 * level);
 }
 pub fn PX(level: usize, va: usize) usize {
-    return va >> @intCast(u6, PXSHIFT(level) & PXMASK);
+    return (va >> @intCast(u6, PXSHIFT(level))) & PXMASK;
 }
 
 // one beyond the highest possible virtual address.

@@ -2,6 +2,9 @@ const param = @import("param.zig");
 const riscv = @import("riscv.zig");
 const swtch = @import("swtch.zig");
 const Cpu = @import("Cpu.zig");
+const kvm = @import("kvm.zig");
+const kalloc = @import("kalloc.zig");
+const memlayout = @import("memlayout.zig");
 const SpinLock = @import("SpinLock.zig");
 
 pub var cpus: [param.NCPU]Cpu = undefined;
@@ -142,5 +145,19 @@ pub fn wakeup(chan: *anyopaque) void {
                 proc.state = .RUNNABLE;
             }
         }
+    }
+}
+
+pub fn mapStacks(kpgtbl: []usize) !void {
+    for (procs) |_, i| {
+        var pa = try kalloc.allocPage();
+        var va = memlayout.KSTACK(i);
+        try kvm.mapPages(
+            kpgtbl,
+            va,
+            riscv.PGSIZE,
+            @ptrToInt(&pa[0]),
+            riscv.PTE_R | riscv.PTE_W,
+        );
     }
 }

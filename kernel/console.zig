@@ -1,5 +1,18 @@
 const std = @import("std");
 const ascii = std.ascii;
+const c = @cImport({
+    @cInclude("kernel/types.h");
+    @cInclude("kernel/param.h");
+    @cInclude("kernel/spinlock.h");
+    @cInclude("kernel/sleeplock.h");
+    @cInclude("kernel/fs.h");
+    @cInclude("kernel/file.h");
+    @cInclude("kernel/memlayout.h");
+    @cInclude("kernel/riscv.h");
+    @cInclude("kernel/defs.h");
+    @cInclude("kernel/proc.h");
+});
+
 const Proc = @import("Proc.zig");
 const uart = @import("uart.zig");
 const SpinLock = @import("SpinLock.zig");
@@ -15,9 +28,14 @@ var read_idx: u32 = 0; // Read index
 var write_idx: u32 = 0; // Write index
 var edit_idx: u32 = 0; // Edit index
 
+extern fn consoleread(user_dst: c_int, dst: usize, n: c_int) c_int;
+extern fn consolewrite(user_src: c_int, src: usize, n: c_int) c_int;
+
 pub fn init() void {
     uart.init();
 
+    //c.devsw[c.CONSOLE].read = consoleread;
+    //c.devsw[c.CONSOLE].write = consolewrite;
     // ToDo: implemente console.read, console.write
     // connect read and write system calls
     // to consoleread and consolewrite.
