@@ -62,7 +62,7 @@ pub export fn printf(format: [*:0]const u8, ...) void {
 
     var ap = @cVaStart();
     var skip_idx: usize = undefined;
-    for (std.mem.span(format)) |byte, i| {
+    for (std.mem.span(format), 0..) |byte, i| {
         if (i == skip_idx) {
             continue;
         }

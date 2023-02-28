@@ -218,7 +218,7 @@ fn balloc(used: usize) !void {
 
     std.debug.assert(used < fs.BSIZE * 8);
 
-    for (buf[0..used]) |_, i| {
+    for (0..used) |i| {
         buf[i / 8] |= @as(u8, 0x1) << @intCast(u3, (i % 8));
     }
 

@@ -151,7 +151,7 @@ pub fn wakeup(chan: *anyopaque) void {
 }
 
 pub fn mapStacks(kpgtbl: []usize) !void {
-    for (procs) |_, i| {
+    for (0..procs.len) |i| {
         var pa = try kalloc.allocPage();
         var va = memlayout.KSTACK(i);
         try kvm.mapPages(
