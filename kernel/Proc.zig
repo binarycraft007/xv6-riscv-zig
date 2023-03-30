@@ -143,7 +143,9 @@ pub fn wakeup(chan: *anyopaque) void {
         if (proc != MyProc()) {
             proc.lock.acquire();
             defer proc.lock.release();
-            if (proc.state == .SLEEPING and proc.chan == chan) {
+            if (proc.state == .SLEEPING and
+                proc.chan == chan)
+            {
                 proc.state = .RUNNABLE;
             }
         }
@@ -154,14 +156,11 @@ pub fn mapStacks(kpgtbl: []usize) !void {
     for (0..procs.len) |i| {
         var pa = try kalloc.allocPage();
         var va = memlayout.KSTACK(i);
-        try kvm.mapPages(
-            kpgtbl,
-            .{
-                .virt_addr = va,
-                .phy_addr = @ptrToInt(&pa[0]),
-                .size = mem.page_size,
-                .perm = riscv.PTE_R | riscv.PTE_W,
-            },
-        );
+        try kvm.mapPages(kpgtbl, .{
+            .virt_addr = va,
+            .phy_addr = @ptrToInt(&pa[0]),
+            .size = mem.page_size,
+            .perm = riscv.PTE_R | riscv.PTE_W,
+        });
     }
 }

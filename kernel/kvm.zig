@@ -37,71 +37,53 @@ pub fn make() ![]usize {
         mem.set(u8, mem.sliceAsBytes(kpgtbl), 0);
 
         // uart registers
-        try mapPages(
-            kpgtbl,
-            .{
-                .virt_addr = memlayout.UART0,
-                .phy_addr = memlayout.UART0,
-                .size = mem.page_size,
-                .perm = riscv.PTE_R | riscv.PTE_W,
-            },
-        );
+        try mapPages(kpgtbl, .{
+            .virt_addr = memlayout.UART0,
+            .phy_addr = memlayout.UART0,
+            .size = mem.page_size,
+            .perm = riscv.PTE_R | riscv.PTE_W,
+        });
 
         // virtio mmio disk interface
-        try mapPages(
-            kpgtbl,
-            .{
-                .virt_addr = memlayout.VIRTIO0,
-                .phy_addr = memlayout.VIRTIO0,
-                .size = mem.page_size,
-                .perm = riscv.PTE_R | riscv.PTE_W,
-            },
-        );
+        try mapPages(kpgtbl, .{
+            .virt_addr = memlayout.VIRTIO0,
+            .phy_addr = memlayout.VIRTIO0,
+            .size = mem.page_size,
+            .perm = riscv.PTE_R | riscv.PTE_W,
+        });
 
         // PLIC
-        try mapPages(
-            kpgtbl,
-            .{
-                .virt_addr = memlayout.PLIC,
-                .phy_addr = memlayout.PLIC,
-                .size = 0x400000,
-                .perm = riscv.PTE_R | riscv.PTE_W,
-            },
-        );
+        try mapPages(kpgtbl, .{
+            .virt_addr = memlayout.PLIC,
+            .phy_addr = memlayout.PLIC,
+            .size = 0x400000,
+            .perm = riscv.PTE_R | riscv.PTE_W,
+        });
 
         // map kernel text executable and read-only.
-        try mapPages(
-            kpgtbl,
-            .{
-                .virt_addr = memlayout.KERNBASE,
-                .phy_addr = memlayout.KERNBASE,
-                .size = @ptrToInt(&etext) - memlayout.KERNBASE,
-                .perm = riscv.PTE_R | riscv.PTE_X,
-            },
-        );
+        try mapPages(kpgtbl, .{
+            .virt_addr = memlayout.KERNBASE,
+            .phy_addr = memlayout.KERNBASE,
+            .size = @ptrToInt(&etext) - memlayout.KERNBASE,
+            .perm = riscv.PTE_R | riscv.PTE_X,
+        });
 
         // map kernel data and the physical RAM we'll make use of.
-        try mapPages(
-            kpgtbl,
-            .{
-                .virt_addr = @ptrToInt(&etext),
-                .phy_addr = @ptrToInt(&etext),
-                .size = memlayout.PHYSTOP - @ptrToInt(&etext),
-                .perm = riscv.PTE_R | riscv.PTE_W,
-            },
-        );
+        try mapPages(kpgtbl, .{
+            .virt_addr = @ptrToInt(&etext),
+            .phy_addr = @ptrToInt(&etext),
+            .size = memlayout.PHYSTOP - @ptrToInt(&etext),
+            .perm = riscv.PTE_R | riscv.PTE_W,
+        });
 
         // map the trampoline for trap entry/exit to
         // the highest virtual address in the kernel.
-        try mapPages(
-            kpgtbl,
-            .{
-                .virt_addr = memlayout.TRAMPOLINE,
-                .phy_addr = @ptrToInt(&trampoline),
-                .size = mem.page_size,
-                .perm = riscv.PTE_R | riscv.PTE_X,
-            },
-        );
+        try mapPages(kpgtbl, .{
+            .virt_addr = memlayout.TRAMPOLINE,
+            .phy_addr = @ptrToInt(&trampoline),
+            .size = mem.page_size,
+            .perm = riscv.PTE_R | riscv.PTE_X,
+        });
 
         try Proc.mapStacks(kpgtbl);
         return kpgtbl;
