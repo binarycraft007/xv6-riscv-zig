@@ -116,7 +116,7 @@ pub fn build(b: *std.build.Builder) !void {
         .optimize = std.builtin.Mode.ReleaseSmall,
     });
     kernel.addCSourceFiles(&kernel_src, &cflags);
-    kernel.addIncludePath(".");
+    kernel.addIncludePath("src");
     kernel.setLinkerScriptPath(.{ .path = kernel_linker });
     kernel.code_model = .medium;
     kernel.install();
