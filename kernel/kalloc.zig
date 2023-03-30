@@ -8,8 +8,12 @@ const mem = std.mem;
 
 extern var end: u8;
 
+const Page = struct {
+    next: ?*Page = null,
+};
+
 var lock: SpinLock = SpinLock{};
-var free_pages: []u8 = undefined;
+var free_pages: ?*Page = null;
 
 pub fn init() void {
     var start = mem.alignForward(@ptrToInt(&end), mem.page_size);
@@ -24,11 +28,6 @@ pub fn init() void {
 }
 
 pub fn freePages(pages: []u8) void {
-    lock.acquire();
-    free_pages.len = 0;
-    free_pages.ptr = @intToPtr([*]u8, memlayout.PHYSTOP);
-    lock.release();
-
     var i: usize = 0;
     while ((i + 4096) <= pages.len) : (i += 4096) {
         freePage(pages[i..].ptr[0..riscv.PGSIZE]);
@@ -51,9 +50,11 @@ pub fn freePage(page: []u8) void {
 
     mem.set(u8, page[0..riscv.PGSIZE], 1);
 
+    var p = @intToPtr(*Page, @ptrToInt(page.ptr));
+
     lock.acquire();
-    free_pages.len += riscv.PGSIZE;
-    free_pages.ptr -= riscv.PGSIZE;
+    p.next = free_pages;
+    free_pages = p;
     lock.release();
 }
 
@@ -61,14 +62,21 @@ pub fn freePage(page: []u8) void {
 /// Returns a pointer that the kernel can use.
 /// Returns error if the memory cannot be allocated.
 pub fn allocPage() ![]u8 {
-    var page = free_pages[(free_pages.len - riscv.PGSIZE)..];
-    lock.acquire();
-    free_pages.len -= riscv.PGSIZE;
-    lock.release();
+    var page: []u8 = undefined;
+    page.len = riscv.PGSIZE;
 
-    if (!mem.isAligned(@ptrToInt(&page[0]), riscv.PGSIZE)) {
+    lock.acquire();
+    var p = free_pages;
+    if (p) |p_maybe| {
+        free_pages = p_maybe.next;
+        page.ptr = @intToPtr(
+            [*]u8,
+            @ptrToInt(p_maybe),
+        );
+    } else {
         return error.KallocFailed;
     }
+    lock.release();
 
     mem.set(u8, page, 5);
     return page;
