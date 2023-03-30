@@ -1,16 +1,16 @@
 const std = @import("std");
 const ascii = std.ascii;
 const c = @cImport({
-    @cInclude("kernel/types.h");
-    @cInclude("kernel/param.h");
-    @cInclude("kernel/spinlock.h");
-    @cInclude("kernel/sleeplock.h");
-    @cInclude("kernel/fs.h");
-    @cInclude("kernel/file.h");
-    @cInclude("kernel/memlayout.h");
-    @cInclude("kernel/riscv.h");
-    @cInclude("kernel/defs.h");
-    @cInclude("kernel/proc.h");
+    @cInclude("src/kernel/types.h");
+    @cInclude("src/kernel/param.h");
+    @cInclude("src/kernel/spinlock.h");
+    @cInclude("src/kernel/sleeplock.h");
+    @cInclude("src/kernel/fs.h");
+    @cInclude("src/kernel/file.h");
+    @cInclude("src/kernel/memlayout.h");
+    @cInclude("src/kernel/riscv.h");
+    @cInclude("src/kernel/defs.h");
+    @cInclude("src/kernel/proc.h");
 });
 
 const Proc = @import("Proc.zig");

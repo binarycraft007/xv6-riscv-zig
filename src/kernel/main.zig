@@ -1,9 +1,9 @@
 const c = @cImport({
-    @cInclude("kernel/types.h");
-    @cInclude("kernel/param.h");
-    @cInclude("kernel/memlayout.h");
-    @cInclude("kernel/riscv.h");
-    @cInclude("kernel/defs.h");
+    @cInclude("src/kernel/types.h");
+    @cInclude("src/kernel/param.h");
+    @cInclude("src/kernel/memlayout.h");
+    @cInclude("src/kernel/riscv.h");
+    @cInclude("src/kernel/defs.h");
 });
 const std = @import("std");
 const log_root = @import("log.zig");

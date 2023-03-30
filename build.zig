@@ -8,29 +8,29 @@ const SyscallGenStep = @import("Build/SyscallGenStep.zig");
 const QemuRunStep = @import("Build/QemuRunStep.zig");
 
 const kernel_src = [_][]const u8{
-    "kernel/entry.S", // Very first boot instructions.
-    "kernel/console.c", // Connect to the user keyboard and screen.
-    "kernel/uart.c", // Serial-port console device driver.
-    "kernel/spinlock.c", // Locks that don’t yield the CPU.
-    "kernel/string.c", // C string and byte-array library.
-    "kernel/vm.c", // Manage page tables and address spaces.
-    "kernel/proc.c", // Processes and scheduling.
-    "kernel/swtch.S", // Thread switching.
-    "kernel/trampoline.S", // Assembly code to switch between user and kernel.
-    "kernel/trap.c", // C code to handle and return from traps and interrupts.
-    "kernel/syscall.c", // Dispatch system calls to handling function.
-    "kernel/sysproc.c", // Process-related system calls.
-    "kernel/bio.c", // Disk block cache for the file system.
-    "kernel/fs.c", // File system.
-    "kernel/log.c", // File system logging and crash recovery.
-    "kernel/sleeplock.c", // Locks that yield the CPU.
-    "kernel/file.c", // File descriptor support.
-    "kernel/pipe.c", // Pipes.
-    "kernel/exec.c", // exec() system call.
-    "kernel/sysfile.c", // File-related system calls.
-    "kernel/kernelvec.S", // Handle traps from kernel, and timer interrupts.
-    "kernel/plic.c", // RISC-V interrupt controller.
-    "kernel/virtio_disk.c", // Disk device driver.
+    "src/kernel/entry.S", // Very first boot instructions.
+    "src/kernel/console.c", // Connect to the user keyboard and screen.
+    "src/kernel/uart.c", // Serial-port console device driver.
+    "src/kernel/spinlock.c", // Locks that don’t yield the CPU.
+    "src/kernel/string.c", // C string and byte-array library.
+    "src/kernel/vm.c", // Manage page tables and address spaces.
+    "src/kernel/proc.c", // Processes and scheduling.
+    "src/kernel/swtch.S", // Thread switching.
+    "src/kernel/trampoline.S", // Assembly code to switch between user and kernel.
+    "src/kernel/trap.c", // C code to handle and return from traps and interrupts.
+    "src/kernel/syscall.c", // Dispatch system calls to handling function.
+    "src/kernel/sysproc.c", // Process-related system calls.
+    "src/kernel/bio.c", // Disk block cache for the file system.
+    "src/kernel/fs.c", // File system.
+    "src/kernel/log.c", // File system logging and crash recovery.
+    "src/kernel/sleeplock.c", // Locks that yield the CPU.
+    "src/kernel/file.c", // File descriptor support.
+    "src/kernel/pipe.c", // Pipes.
+    "src/kernel/exec.c", // exec() system call.
+    "src/kernel/sysfile.c", // File-related system calls.
+    "src/kernel/kernelvec.S", // Handle traps from kernel, and timer interrupts.
+    "src/kernel/plic.c", // RISC-V interrupt controller.
+    "src/kernel/virtio_disk.c", // Disk device driver.
 };
 
 const cflags = [_][]const u8{
@@ -51,28 +51,28 @@ const cflags = [_][]const u8{
 };
 
 const user_progs = [_][]const u8{
-    // "user/forktest.c", // ToDo: build forktest
-    "user/cat.c",
-    "user/echo.c",
-    "user/grep.c",
-    "user/init.c",
-    "user/kill.c",
-    "user/ln.c",
-    "user/ls.c",
-    "user/mkdir.c",
-    "user/rm.c",
-    "user/sh.c",
-    "user/stressfs.c",
-    "user/usertests.c",
-    "user/grind.c",
-    "user/wc.c",
-    "user/zombie.c",
+    // "src/user/forktest.c", // ToDo: build forktest
+    "src/user/cat.c",
+    "src/user/echo.c",
+    "src/user/grep.c",
+    "src/user/init.c",
+    "src/user/kill.c",
+    "src/user/ln.c",
+    "src/user/ls.c",
+    "src/user/mkdir.c",
+    "src/user/rm.c",
+    "src/user/sh.c",
+    "src/user/stressfs.c",
+    "src/user/usertests.c",
+    "src/user/grind.c",
+    "src/user/wc.c",
+    "src/user/zombie.c",
 };
 
 const ulib_src = [_][]const u8{
-    "user/ulib.c",
-    "user/printf.c",
-    "user/umalloc.c",
+    "src/user/ulib.c",
+    "src/user/printf.c",
+    "src/user/umalloc.c",
 };
 
 const syscalls = [_][]const u8{
@@ -111,7 +111,7 @@ pub fn build(b: *std.build.Builder) !void {
 
     const kernel = b.addExecutable(.{
         .name = "kernel",
-        .root_source_file = .{ .path = "kernel/start.zig" },
+        .root_source_file = .{ .path = "src/kernel/start.zig" },
         .target = target,
         .optimize = std.builtin.Mode.ReleaseSmall,
     });
@@ -127,7 +127,7 @@ pub fn build(b: *std.build.Builder) !void {
     var artifacts = std.ArrayList(*CompileStep).init(b.allocator);
     inline for (user_progs) |src| {
         const src_files = &[_][]const u8{src} ++ ulib_src;
-        const exe_name = "_" ++ src["user/".len .. src.len - 2];
+        const exe_name = "_" ++ src["src/user/".len .. src.len - 2];
         const user_prog = b.addExecutable(.{
             .name = exe_name,
             .target = target,
@@ -138,7 +138,7 @@ pub fn build(b: *std.build.Builder) !void {
             .source = syscall_gen_step.getFileSource(),
             .args = &cflags,
         });
-        user_prog.addIncludePath(".");
+        user_prog.addIncludePath("src");
         user_prog.setLinkerScriptPath(.{ .path = user_linker });
         user_prog.code_model = .medium;
         user_prog.install();
