@@ -2,6 +2,7 @@ const std = @import("std");
 const riscv = @import("riscv.zig");
 const memlayout = @import("memlayout.zig");
 const SpinLock = @import("SpinLock.zig");
+const Queue = @import("queue.zig").Queue;
 const Stack = std.atomic.Stack;
 const kalloc_log = std.log.scoped(.kalloc);
 const mem = std.mem;
@@ -13,7 +14,7 @@ const Page = struct {
 };
 
 var lock: SpinLock = SpinLock{};
-var free_pages: ?*Page = null;
+var free_pages: Queue(Page) = .{ .name = "page list" };
 
 pub fn init() void {
     var start = mem.alignForward(@ptrToInt(&end), mem.page_size);
@@ -50,11 +51,8 @@ pub fn freePage(page: []u8) void {
 
     mem.set(u8, page[0..riscv.PGSIZE], 1);
 
-    var p = @intToPtr(*Page, @ptrToInt(page.ptr));
-
     lock.acquire();
-    p.next = free_pages;
-    free_pages = p;
+    free_pages.push(@intToPtr(*Page, @ptrToInt(page.ptr)));
     lock.release();
 }
 
@@ -66,14 +64,10 @@ pub fn allocPage() ![]u8 {
     page.len = riscv.PGSIZE;
 
     lock.acquire();
-    var p = free_pages;
-    if (p) |p_maybe| {
-        free_pages = p_maybe.next;
-        page.ptr = @intToPtr(
-            [*]u8,
-            @ptrToInt(p_maybe),
-        );
+    if (free_pages.pop()) |p| {
+        page.ptr = @intToPtr([*]u8, @ptrToInt(p));
     } else {
+        lock.release();
         return error.KallocFailed;
     }
     lock.release();
