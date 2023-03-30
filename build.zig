@@ -1,7 +1,8 @@
 const std = @import("std");
 const mem = std.mem;
-const CompileStep = std.build.CompileStep;
-const InstallFileStep = std.build.InstallFileStep;
+const RunStep = std.Build.RunStep;
+const CompileStep = std.Build.CompileStep;
+const InstallFileStep = std.Build.InstallFileStep;
 const MakeFilesystemStep = @import("mkfs/MakeFilesystemStep.zig");
 const QemuRunStep = @import("mkfs/QemuRunStep.zig");
 
@@ -116,6 +117,7 @@ pub fn build(b: *std.build.Builder) !void {
         user_prog.step.dependOn(&usys_install.step);
         try artifacts.append(user_prog);
     }
+
     const image = installFilesystem(b, artifacts, "fs.img");
     qemuRun(b, kernel, image);
 }
@@ -173,7 +175,7 @@ pub fn generateUsys(b: *std.build.Builder) !*InstallFileStep {
 
 /// Output filesystem image determined by filename
 pub fn installFilesystem(
-    b: *std.build.Builder,
+    b: *std.Build,
     artifacts: std.ArrayList(*CompileStep),
     dest_filename: []const u8,
 ) *MakeFilesystemStep {
@@ -183,28 +185,26 @@ pub fn installFilesystem(
 }
 
 pub fn addMakeFilesystem(
-    b: *std.build.Builder,
+    b: *std.Build,
     artifacts: std.ArrayList(*CompileStep),
     dest_filename: []const u8,
 ) *MakeFilesystemStep {
     return MakeFilesystemStep.create(b, artifacts, dest_filename);
 }
 
-/// Run os with qemu
 pub fn qemuRun(
-    b: *std.build.Builder,
+    b: *std.Build,
     kernel: *CompileStep,
     image: *MakeFilesystemStep,
 ) void {
-    const run_step = addQemuRun(b, kernel, image);
-    b.getInstallStep().dependOn(&run_step.step);
-    //return run_step;
-}
+    if (!b.enable_qemu) return;
 
-pub fn addQemuRun(
-    b: *std.build.Builder,
-    kernel: *CompileStep,
-    image: *MakeFilesystemStep,
-) *QemuRunStep {
-    return QemuRunStep.create(b, kernel, image);
+    const run_step = RunStep.create(b, b.fmt("run_xv6", .{}));
+    b.getInstallStep().dependOn(&run_step.step);
+
+    const qemu_run_step = QemuRunStep.create(b, kernel, .{
+        .image = image,
+        .run_step = run_step,
+    });
+    b.getInstallStep().dependOn(&qemu_run_step.step);
 }

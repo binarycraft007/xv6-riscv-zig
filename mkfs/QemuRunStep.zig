@@ -1,24 +1,14 @@
 const std = @import("std");
 const mem = std.mem;
-const build = std.build;
-const Step = std.build.Step;
-const Builder = std.build.Builder;
-const CompileStep = std.build.CompileStep;
+const Build = std.Build;
+const Step = Build.Step;
+const CompileStep = Build.CompileStep;
 const MakeFilesystemStep = @import("MakeFilesystemStep.zig");
-const RunStep = std.build.RunStep;
-
-const fs = std.fs;
-const process = std.process;
-const EnvMap = process.EnvMap;
+const RunStep = Build.RunStep;
 
 const QemuRunStep = @This();
 
-pub const base_id = .emulatable_run;
-
-const max_stdout_size = 1 * 1024 * 1024; // 1 MiB
-
 step: Step,
-builder: *Builder,
 
 /// The kernel (executable) to be run by this step
 kernel: *CompileStep,
@@ -26,44 +16,49 @@ kernel: *CompileStep,
 /// The filesystem image for the os
 image: *MakeFilesystemStep,
 
-/// Set this to `null` to ignore the exit code for the purpose of determining a successful execution
-expected_term: ?std.ChildProcess.Term = .{ .Exited = 0 },
+run_step: *RunStep,
 
-/// Override this field to modify the environment
-env_map: ?*EnvMap,
+pub const Options = struct {
+    image: *MakeFilesystemStep,
+    run_step: *RunStep,
+};
 
-/// Set this to modify the current working directory
-cwd: ?[]const u8,
-
-stdout_action: RunStep.StdIoAction = .inherit,
-stderr_action: RunStep.StdIoAction = .inherit,
-
-pub fn create(builder: *Builder, kernel: *CompileStep, image: *MakeFilesystemStep) *QemuRunStep {
+pub fn create(
+    owner: *Build,
+    kernel: *CompileStep,
+    options: Options,
+) *QemuRunStep {
     std.debug.assert(kernel.kind == .exe);
-    const self = builder.allocator.create(QemuRunStep) catch unreachable;
+    const self = owner.allocator.create(QemuRunStep) catch @panic("OOM");
 
     self.* = .{
-        .builder = builder,
-        .step = Step.init(.emulatable_run, "Run os with qemu", builder.allocator, make),
+        .step = Step.init(.{
+            .id = .custom,
+            .name = "Run xv6 os with qemu",
+            .owner = owner,
+            .makeFn = make,
+        }),
         .kernel = kernel,
-        .image = image,
-        .env_map = null,
-        .cwd = null,
+        .image = options.image,
+        .run_step = options.run_step,
     };
-    self.step.dependOn(&kernel.step);
-    self.step.dependOn(&image.step);
+
+    self.run_step.step.dependOn(&self.step);
+    self.step.dependOn(&self.kernel.step);
+    self.step.dependOn(&self.image.step);
 
     return self;
 }
 
-fn make(step: *Step) !void {
+fn make(step: *Step, prog_node: *std.Progress.Node) !void {
+    _ = prog_node;
     const self = @fieldParentPtr(QemuRunStep, "step", step);
 
-    if (!self.builder.enable_qemu) {
+    if (!self.step.owner.enable_qemu) {
         return;
     }
 
-    var argv_list = std.ArrayList([]const u8).init(self.builder.allocator);
+    var argv_list = std.ArrayList([]const u8).init(self.step.owner.allocator);
     defer argv_list.deinit();
 
     try argv_list.appendSlice(&[_][]const u8{
@@ -83,42 +78,23 @@ fn make(step: *Step) !void {
         "virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0",
     });
 
-    const kernel_path = self.kernel.getOutputSource().getPath(self.builder);
+    const kernel_path = self.kernel.getOutputSource().getPath(self.step.owner);
     try argv_list.appendSlice(&[_][]const u8{
         "-kernel",
         kernel_path,
     });
 
-    const image_path = self.image.getOutputSource().getPath(self.builder);
-    var drive_arg = try mem.concat(self.builder.allocator, u8, &[_][]const u8{
+    const image_path = self.image.getOutputSource().getPath(self.step.owner);
+    var drive_arg = try mem.concat(self.step.owner.allocator, u8, &[_][]const u8{
         "file=",
         image_path,
         ",if=none,format=raw,id=x0",
     });
-    defer self.builder.allocator.free(drive_arg);
+    defer self.step.owner.allocator.free(drive_arg);
 
     try argv_list.appendSlice(&[_][]const u8{
         "-drive",
         drive_arg,
     });
-
-    try RunStep.runCommand(
-        argv_list.items,
-        self.builder,
-        self.expected_term,
-        self.stdout_action,
-        self.stderr_action,
-        .Inherit,
-        self.env_map,
-        self.cwd,
-        false,
-    );
-}
-
-pub fn expectStdErrEqual(self: *QemuRunStep, bytes: []const u8) void {
-    self.stderr_action = .{ .expect_exact = self.builder.dupe(bytes) };
-}
-
-pub fn expectStdOutEqual(self: *QemuRunStep, bytes: []const u8) void {
-    self.stdout_action = .{ .expect_exact = self.builder.dupe(bytes) };
+    self.run_step.addArgs(argv_list.items);
 }

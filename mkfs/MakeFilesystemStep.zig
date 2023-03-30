@@ -5,10 +5,10 @@ const math = std.math;
 const assert = std.debug.assert;
 const MakeFilesystemStep = @This();
 
-const InstallDir = std.build.InstallDir;
-const Builder = std.build.Builder;
-const CompileStep = std.build.CompileStep;
-const Step = std.build.Step;
+const Build = std.Build;
+const InstallDir = Build.InstallDir;
+const CompileStep = Build.CompileStep;
+const Step = Build.Step;
 
 const fs = @import("fs.zig");
 const stat = @import("stat.zig");
@@ -30,17 +30,24 @@ var freeblock: u32 = undefined;
 var file: std.fs.File = undefined;
 
 step: Step,
-builder: *Builder,
 artifacts: std.ArrayList(*CompileStep),
 dest_dir: InstallDir,
 dest_filename: []const u8,
-output_file: std.build.GeneratedFile,
+output_file: std.Build.GeneratedFile,
 
-pub fn create(builder: *Builder, artifacts: std.ArrayList(*CompileStep), dest_filename: []const u8) *MakeFilesystemStep {
-    const self = builder.allocator.create(MakeFilesystemStep) catch unreachable;
+pub fn create(
+    owner: *Build,
+    artifacts: std.ArrayList(*CompileStep),
+    dest_filename: []const u8,
+) *MakeFilesystemStep {
+    const self = owner.allocator.create(MakeFilesystemStep) catch @panic("OOM");
     self.* = MakeFilesystemStep{
-        .step = Step.init(.custom, builder.fmt("make filesystem image {s}", .{dest_filename}), builder.allocator, make),
-        .builder = builder,
+        .step = Step.init(.{
+            .id = .custom,
+            .owner = owner,
+            .name = owner.fmt("make filesystem image {s}", .{dest_filename}),
+            .makeFn = make,
+        }),
         .artifacts = artifacts,
         .dest_dir = .bin,
         .dest_filename = dest_filename,
@@ -51,17 +58,18 @@ pub fn create(builder: *Builder, artifacts: std.ArrayList(*CompileStep), dest_fi
         self.step.dependOn(&artifact.step);
     }
 
-    builder.pushInstalledFile(self.dest_dir, dest_filename);
+    owner.pushInstalledFile(self.dest_dir, dest_filename);
     return self;
 }
 
-pub fn getOutputSource(self: *const MakeFilesystemStep) std.build.FileSource {
-    return std.build.FileSource{ .generated = &self.output_file };
+pub fn getOutputSource(self: *const MakeFilesystemStep) std.Build.FileSource {
+    return std.Build.FileSource{ .generated = &self.output_file };
 }
 
-fn make(step: *Step) !void {
+fn make(step: *Step, prog_node: *std.Progress.Node) !void {
+    _ = prog_node;
     const self = @fieldParentPtr(MakeFilesystemStep, "step", step);
-    const b = self.builder;
+    const b = self.step.owner;
 
     var full_src_paths = std.ArrayList([]const u8).init(b.allocator);
     try full_src_paths.append("README");
