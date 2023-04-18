@@ -119,8 +119,8 @@ pub fn build(b: *std.build.Builder) !void {
     kernel.addIncludePath("src");
     kernel.setLinkerScriptPath(.{ .path = kernel_linker });
     kernel.code_model = .medium;
-    kernel.install();
     kernel.strip = true;
+    b.installArtifact(kernel);
 
     const syscall_gen_step = addSyscallGen(b, &syscalls);
 
@@ -141,8 +141,8 @@ pub fn build(b: *std.build.Builder) !void {
         user_prog.addIncludePath("src");
         user_prog.setLinkerScriptPath(.{ .path = user_linker });
         user_prog.code_model = .medium;
-        user_prog.install();
         user_prog.step.dependOn(&syscall_gen_step.step);
+        b.installArtifact(user_prog);
         try artifacts.append(user_prog);
     }
 
