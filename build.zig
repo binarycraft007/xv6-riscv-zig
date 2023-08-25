@@ -51,7 +51,7 @@ const cflags = [_][]const u8{
 };
 
 const user_progs = [_][]const u8{
-    // "src/user/forktest.c", // ToDo: build forktest
+    // "src/user/forktest.c", // TODO: build forktest
     "src/user/cat.c",
     "src/user/echo.c",
     "src/user/grep.c",
@@ -116,7 +116,7 @@ pub fn build(b: *std.build.Builder) !void {
         .optimize = std.builtin.Mode.ReleaseSmall,
     });
     kernel.addCSourceFiles(&kernel_src, &cflags);
-    kernel.addIncludePath("src");
+    kernel.addIncludePath(.{ .path = "src" });
     kernel.setLinkerScriptPath(.{ .path = kernel_linker });
     kernel.code_model = .medium;
     kernel.strip = true;
@@ -134,11 +134,11 @@ pub fn build(b: *std.build.Builder) !void {
             .optimize = std.builtin.Mode.ReleaseSmall,
         });
         user_prog.addCSourceFiles(src_files, &cflags);
-        user_prog.addCSourceFileSource(.{
-            .source = syscall_gen_step.getFileSource(),
-            .args = &cflags,
+        user_prog.addCSourceFile(.{
+            .file = syscall_gen_step.getFileSource(),
+            .flags = &cflags,
         });
-        user_prog.addIncludePath("src");
+        user_prog.addIncludePath(.{ .path = "src" });
         user_prog.setLinkerScriptPath(.{ .path = user_linker });
         user_prog.code_model = .medium;
         user_prog.step.dependOn(&syscall_gen_step.step);

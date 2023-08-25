@@ -151,7 +151,7 @@ pub fn uartIntr() !void {
 }
 
 pub fn getRegPtr(reg: usize) *volatile u8 {
-    return @intToPtr(*volatile u8, memlayout.UART0 + reg);
+    return @as(*volatile u8, @ptrFromInt(memlayout.UART0 + reg));
 }
 
 pub fn readReg(reg: usize) u8 {

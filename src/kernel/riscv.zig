@@ -194,7 +194,7 @@ pub inline fn w_pmpaddr0(pmpaddr0: usize) void {
 pub const SATP_SV39 = @as(usize, 8) << 60;
 
 pub fn MAKE_SATP(pagetable: PageTable) usize {
-    return SATP_SV39 | (@ptrToInt(pagetable) >> 12);
+    return SATP_SV39 | (@intFromPtr(pagetable) >> 12);
 }
 
 // supervisor address translation and protection;
@@ -262,17 +262,17 @@ pub inline fn r_time() usize {
 
 // enable device interrupts
 pub inline fn intr_on() void {
-    w_sstatus(r_sstatus() | @enumToInt(SSTATUS.SIE));
+    w_sstatus(r_sstatus() | @intFromEnum(SSTATUS.SIE));
 }
 
 // disable device interrupts
 pub inline fn intr_off() void {
-    w_sstatus(r_sstatus() & ~@enumToInt(SSTATUS.SIE));
+    w_sstatus(r_sstatus() & ~@intFromEnum(SSTATUS.SIE));
 }
 
 // are device interrupts enabled?
 pub inline fn intr_get() bool {
-    return (r_sstatus() & @enumToInt(SSTATUS.SIE)) != 0;
+    return (r_sstatus() & @intFromEnum(SSTATUS.SIE)) != 0;
 }
 
 pub inline fn r_sp() usize {
@@ -342,7 +342,7 @@ pub fn PXSHIFT(level: usize) usize {
     return PGSHIFT + @as(usize, 9 * level);
 }
 pub fn PX(level: usize, va: usize) usize {
-    return (va >> @intCast(u6, PXSHIFT(level))) & PXMASK;
+    return (va >> @as(u6, @intCast(PXSHIFT(level)))) & PXMASK;
 }
 
 // one beyond the highest possible virtual address.

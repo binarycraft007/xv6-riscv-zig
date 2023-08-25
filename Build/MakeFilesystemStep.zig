@@ -123,19 +123,19 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
         try wsect(i, &zeroes);
     }
 
-    mem.set(u8, &buf, 0);
+    @memset(&buf, 0);
     mem.copy(u8, &buf, mem.asBytes(&sb));
     try wsect(1, &buf);
 
-    const rootino = @intCast(u16, try ialloc(.dir));
+    const rootino = @as(u16, @intCast(try ialloc(.dir)));
     std.debug.assert(rootino == fs.ROOTINO);
 
-    mem.set(u8, mem.asBytes(&de), 0);
+    @memset(mem.asBytes(&de), 0);
     de.inum = mem.readVarInt(u16, mem.asBytes(&rootino), .Little);
     mem.copy(u8, &de.name, ".");
     try iappend(@as(u32, rootino), mem.asBytes(&de));
 
-    mem.set(u8, mem.asBytes(&de), 0);
+    @memset(mem.asBytes(&de), 0);
     de.inum = mem.readVarInt(u16, mem.asBytes(&rootino), .Little);
     mem.copy(u8, &de.name, "..");
     try iappend(@as(u32, rootino), mem.asBytes(&de));
@@ -151,8 +151,8 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
             shortname = shortname[1..];
         }
 
-        var inum = @intCast(u16, try ialloc(.file));
-        mem.set(u8, mem.asBytes(&de), 0);
+        var inum = @as(u16, @intCast(try ialloc(.file)));
+        @memset(mem.asBytes(&de), 0);
         de.inum = mem.readVarInt(u16, mem.asBytes(&inum), .Little);
         mem.copy(u8, &de.name, shortname);
         try iappend(@as(u32, rootino), mem.asBytes(&de));
@@ -210,8 +210,8 @@ fn ialloc(@"type": stat.FileType) !u32 {
     defer freeinode += 1;
 
     var din: fs.Dinode = undefined;
-    mem.set(u8, mem.asBytes(&din), 0);
-    var din_bytes = mem.toBytes(@enumToInt(@"type"));
+    @memset(mem.asBytes(&din), 0);
+    var din_bytes = mem.toBytes(@intFromEnum(@"type"));
     din.type = mem.readVarInt(i16, &din_bytes, .Little);
     din.nlink = mem.readVarInt(i16, &[_]u8{1}, .Little);
     din.size = mem.readVarInt(u32, &[_]u8{0}, .Little);
@@ -222,12 +222,12 @@ fn ialloc(@"type": stat.FileType) !u32 {
 
 fn balloc(used: usize) !void {
     var buf: [fs.BSIZE]u8 = undefined;
-    mem.set(u8, &buf, 0);
+    @memset(&buf, 0);
 
     std.debug.assert(used < fs.BSIZE * 8);
 
     for (0..used) |i| {
-        buf[i / 8] |= @as(u8, 0x1) << @intCast(u3, (i % 8));
+        buf[i / 8] |= @as(u8, 0x1) << @as(u3, @intCast((i % 8)));
     }
 
     try wsect(sb.bmapstart, &buf);
@@ -246,7 +246,7 @@ fn iappend(inum: u32, data: []const u8) !void {
 
     while (n > 0) : ({
         n -= n1;
-        off += @intCast(u32, n1);
+        off += @as(u32, @intCast(n1));
         idx += n1;
     }) {
         var fbn = off / fs.BSIZE;
@@ -274,7 +274,7 @@ fn iappend(inum: u32, data: []const u8) !void {
             }
             break :blk mem.readVarInt(usize, mem.asBytes(&indirect[fbn - fs.NDIRECT]), .Little);
         };
-        n1 = math.min(n, (fbn + 1) * fs.BSIZE - off);
+        n1 = @min(n, (fbn + 1) * fs.BSIZE - off);
         try rsect(x, &buf);
 
         mem.copy(u8, buf[off - (fbn * fs.BSIZE) ..], data[idx..][0..n1]);

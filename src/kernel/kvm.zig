@@ -34,7 +34,7 @@ pub fn init() void {
 pub fn make() ![]usize {
     var kpgtbl_maybe = sliceToPageTable(try kalloc.allocPage());
     if (kpgtbl_maybe) |kpgtbl| {
-        mem.set(u8, mem.sliceAsBytes(kpgtbl), 0);
+        @memset(mem.sliceAsBytes(kpgtbl), 0);
 
         // uart registers
         try mapPages(kpgtbl, .{
@@ -64,15 +64,15 @@ pub fn make() ![]usize {
         try mapPages(kpgtbl, .{
             .virt_addr = memlayout.KERNBASE,
             .phy_addr = memlayout.KERNBASE,
-            .size = @ptrToInt(&etext) - memlayout.KERNBASE,
+            .size = @intFromPtr(&etext) - memlayout.KERNBASE,
             .perm = riscv.PTE_R | riscv.PTE_X,
         });
 
         // map kernel data and the physical RAM we'll make use of.
         try mapPages(kpgtbl, .{
-            .virt_addr = @ptrToInt(&etext),
-            .phy_addr = @ptrToInt(&etext),
-            .size = memlayout.PHYSTOP - @ptrToInt(&etext),
+            .virt_addr = @intFromPtr(&etext),
+            .phy_addr = @intFromPtr(&etext),
+            .size = memlayout.PHYSTOP - @intFromPtr(&etext),
             .perm = riscv.PTE_R | riscv.PTE_W,
         });
 
@@ -80,7 +80,7 @@ pub fn make() ![]usize {
         // the highest virtual address in the kernel.
         try mapPages(kpgtbl, .{
             .virt_addr = memlayout.TRAMPOLINE,
-            .phy_addr = @ptrToInt(&trampoline),
+            .phy_addr = @intFromPtr(&trampoline),
             .size = mem.page_size,
             .perm = riscv.PTE_R | riscv.PTE_X,
         });
@@ -101,7 +101,7 @@ pub fn sliceToPageTable(page: []u8) ?[]usize {
     var kpgtbl = mem.alignInSlice(page, @alignOf([*]usize));
     if (kpgtbl) |slice| {
         var aligned_len = slice.len / @alignOf([*]usize);
-        var new_slice = @ptrCast([*]usize, slice.ptr)[0..aligned_len];
+        var new_slice = @as([*]usize, @ptrCast(slice.ptr))[0..aligned_len];
         return new_slice;
     }
     return null;
@@ -116,8 +116,8 @@ pub fn mapPages(page: []usize, opts: MapPageOptions) !void {
 
     var pa_var: usize = opts.phy_addr;
     const last_base = opts.virt_addr + opts.size - 1;
-    var addr = mem.alignBackward(opts.virt_addr, mem.page_size);
-    const last = mem.alignBackward(last_base, mem.page_size);
+    var addr = mem.alignBackward(usize, opts.virt_addr, mem.page_size);
+    const last = mem.alignBackward(usize, last_base, mem.page_size);
 
     while (true) : ({
         addr += riscv.PGSIZE;
@@ -152,14 +152,14 @@ pub fn walk(page: []usize, opts: PageWalkOptions) !*usize {
     while (level > 0) : (level -= 1) {
         var pte = &page_var[riscv.PX(level, opts.virt_addr)];
         if ((pte.* & riscv.PTE_V) > 0) {
-            page_var.ptr = @intToPtr([*]usize, riscv.PTE2PA(pte.*));
+            page_var.ptr = @as([*]usize, @ptrFromInt(riscv.PTE2PA(pte.*)));
         } else {
             if (!opts.alloc) return error.PageWalkFailed;
             page_var = sliceToPageTable(try kalloc.allocPage()) orelse {
                 return error.PageWalkFailed;
             };
-            mem.set(u8, mem.sliceAsBytes(page_var), 0);
-            pte.* = riscv.PA2PTE(@ptrToInt(&page_var[0])) | riscv.PTE_V;
+            @memset(mem.sliceAsBytes(page_var), 0);
+            pte.* = riscv.PA2PTE(@intFromPtr(&page_var[0])) | riscv.PTE_V;
         }
     }
 

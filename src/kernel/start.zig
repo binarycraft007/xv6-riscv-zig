@@ -22,12 +22,12 @@ pub export fn start() void {
     // set M Previous Privilege mode to Supervisor, for mret.
     var mstatus = riscv.r_mstatus();
     mstatus &= ~@as(usize, riscv.MSTATUS_MPP_MASK);
-    mstatus |= @enumToInt(riscv.MSTATUS.MPP_S);
+    mstatus |= @intFromEnum(riscv.MSTATUS.MPP_S);
     riscv.w_mstatus(mstatus);
 
     // set M Exception Program Counter to kmain, for mret.
     // requires code_model = .medium
-    riscv.w_mepc(@ptrToInt(&main.kmain));
+    riscv.w_mepc(@intFromPtr(&main.kmain));
 
     // disable paging for now.
     riscv.w_satp(0);
@@ -36,9 +36,9 @@ pub export fn start() void {
     riscv.w_medeleg(@as(usize, 0xffff));
     riscv.w_mideleg(@as(usize, 0xffff));
     riscv.w_sie(riscv.r_sie() |
-        @enumToInt(riscv.SIE.SEIE) |
-        @enumToInt(riscv.SIE.STIE) |
-        @enumToInt(riscv.SIE.SSIE));
+        @intFromEnum(riscv.SIE.SEIE) |
+        @intFromEnum(riscv.SIE.STIE) |
+        @intFromEnum(riscv.SIE.SSIE));
 
     // configure Physical Memory Protection to give supervisor mode
     // access to all of physical memory.
@@ -73,18 +73,18 @@ pub fn timerinit() void {
     // scratch[3] : address of CLINT MTIMECMP register.
     // scratch[4] : desired interval (in cycles) between timer interrupts.
     var scratch = timer_scratch[id];
-    scratch[3] = @ptrToInt(memlayout.CLINT_MTIMECMP(id));
+    scratch[3] = @intFromPtr(memlayout.CLINT_MTIMECMP(id));
     scratch[4] = interval;
-    riscv.w_mscratch(@ptrToInt(&scratch));
+    riscv.w_mscratch(@intFromPtr(&scratch));
 
     // set the machine-mode trap handler.
-    riscv.w_mtvec(@ptrToInt(&timervec));
+    riscv.w_mtvec(@intFromPtr(&timervec));
 
     // enable machine-mode interrupts.
-    riscv.w_mstatus(riscv.r_mstatus() | @enumToInt(riscv.MSTATUS.MIE));
+    riscv.w_mstatus(riscv.r_mstatus() | @intFromEnum(riscv.MSTATUS.MIE));
 
     // enable machine-mode timer interrupts.
-    riscv.w_mie(riscv.r_mie() | @enumToInt(riscv.MIE.MTIE));
+    riscv.w_mie(riscv.r_mie() | @intFromEnum(riscv.MIE.MTIE));
 }
 
 pub fn panic(

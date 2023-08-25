@@ -77,7 +77,7 @@ trapframe: *TrapFrame,
 context: Cpu.Context,
 
 pub fn cpuId() u32 {
-    return @intCast(u32, riscv.r_tp());
+    return @as(u32, @intCast(riscv.r_tp()));
 }
 
 pub fn MyCpu() *Cpu {
@@ -158,7 +158,7 @@ pub fn mapStacks(kpgtbl: []usize) !void {
         var va = memlayout.KSTACK(i);
         try kvm.mapPages(kpgtbl, .{
             .virt_addr = va,
-            .phy_addr = @ptrToInt(&pa[0]),
+            .phy_addr = @intFromPtr(&pa[0]),
             .size = mem.page_size,
             .perm = riscv.PTE_R | riscv.PTE_W,
         });

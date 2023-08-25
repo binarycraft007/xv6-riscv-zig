@@ -17,8 +17,8 @@ var lock: SpinLock = SpinLock{};
 var free_pages: Queue(Page) = .{ .name = "page list" };
 
 pub fn init() void {
-    var start = mem.alignForward(@ptrToInt(&end), mem.page_size);
-    var ptr = @alignCast(mem.page_size, @intToPtr([*]u8, start));
+    var start = mem.alignForward(usize, @intFromPtr(&end), mem.page_size);
+    var ptr = @as([*]u8, @ptrFromInt(start));
     kalloc_log.debug(
         "available [0x{x} - 0x{x}]\n",
         .{ start, memlayout.PHYSTOP },
@@ -40,19 +40,19 @@ pub fn freePages(pages: []u8) void {
 /// call to kalloc().  (The exception is when
 /// initializing the allocator; see kinit above.)
 pub fn freePage(page: []u8) void {
-    const addr = @ptrToInt(&page[0]);
+    const addr = @intFromPtr(&page[0]);
 
     if (!mem.isAligned(addr, riscv.PGSIZE))
         @panic("not aligned");
-    if (addr < @ptrToInt(&end))
+    if (addr < @intFromPtr(&end))
         @panic("forbit to free kernel mem");
     if (addr >= memlayout.PHYSTOP)
         @panic("invalid addr to free");
 
-    mem.set(u8, page[0..riscv.PGSIZE], 1);
+    @memset(page[0..riscv.PGSIZE], 1);
 
     lock.acquire();
-    free_pages.push(@intToPtr(*Page, @ptrToInt(page.ptr)));
+    free_pages.push(@as(*Page, @ptrFromInt(@intFromPtr(page.ptr))));
     lock.release();
 }
 
@@ -65,14 +65,14 @@ pub fn allocPage() ![]u8 {
 
     lock.acquire();
     if (free_pages.pop()) |p| {
-        page.ptr = @intToPtr([*]u8, @ptrToInt(p));
+        page.ptr = @as([*]u8, @ptrFromInt(@intFromPtr(p)));
     } else {
         lock.release();
         return error.KallocFailed;
     }
     lock.release();
 
-    mem.set(u8, page, 5);
+    @memset(page, 5);
     return page;
 }
 
@@ -84,6 +84,6 @@ pub export fn kalloc() ?*anyopaque {
 
 /// wrapper for freePage used by c code
 pub export fn kfree(pa: ?*anyopaque) void {
-    var slice = @ptrCast([*]u8, pa)[0..riscv.PGSIZE];
+    var slice = @as([*]u8, @ptrCast(pa))[0..riscv.PGSIZE];
     freePage(slice);
 }
